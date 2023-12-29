@@ -1,7 +1,4 @@
 use std::collections::HashMap;
-
-use std::f64::consts;
-
 use num_bigfloat::BigFloat;
 
 use crate::{ast::{
