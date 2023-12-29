@@ -1,9 +1,12 @@
 use std::fmt;
 
+use num_bigfloat::BigFloat;
+
 use crate::ast::tokens::Operator;
 use crate::ast::tokens::OtherFn;
 use crate::ast::tokens::Position;
 use crate::ast::tokens::PrefixFn;
+use crate::ast::tokens::MathConst;
 
 pub enum Expr {
     InfixOp(Operator, Box<ExprPos>, Box<ExprPos>),
@@ -11,9 +14,11 @@ pub enum Expr {
     PrefixOp(Operator, Box<ExprPos>),
     PostfixOp(Operator, Box<ExprPos>),
     Variable(char),
+    Nested(Box<ExprPos>),
+    Const(MathConst),
     OtherFunction(OtherFn),
-    Number(f64),
-    ImaginaryConst
+    Number(BigFloat, usize),
+    // ImaginaryConst
 }
 
 pub struct ExprPos {
@@ -36,8 +41,10 @@ impl fmt::Display for Expr {
             Expr::PostfixOp(op, val) => write!(f, "({}{})", val, op),
             Expr::Variable(c) => write!(f, "{}", c),
             Expr::OtherFunction(_) => todo!(),
-            Expr::ImaginaryConst => write!(f, "i"),
-            Expr::Number(n) => write!(f, "{}", n),
+            // Expr::ImaginaryConst => write!(f, "i"),
+            Expr::Number(n, d) => write!(f, "{:.*}", d, n),
+            Expr::Const(c) => write!(f, "{}", c),
+            Expr::Nested(e) => write!(f, "({})", e),
         }
     }
 }

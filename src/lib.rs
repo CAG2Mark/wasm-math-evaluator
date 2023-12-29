@@ -3,12 +3,11 @@ mod utils;
 pub mod ast;
 pub mod parsing;
 pub mod util;
-pub mod eval;
+pub mod evaluation;
 
 use std::collections::HashMap;
 
-use eval::EvalError;
-use num_complex::Complex64;
+use evaluation::eval::EvalError;
 use parsing::parser::ParseError;
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
@@ -64,6 +63,7 @@ pub fn lex_eqn(inp: &str) {
         Err(pos) => console_log!("unexpected token at position {}", pos),
     }
 }
+
 
 #[derive(Serialize, Deserialize)]
 pub struct ErrorInfo {
@@ -139,7 +139,7 @@ pub fn parse_eqn(inp: &str) {
         }
     };
 
-    let parsed = parsing::parser::parse_expr(&mut tokens);
+    let parsed = parsing::parser::parse(&mut tokens);
 
     match parsed {
         Ok(expr) => console_log!("{}", expr),
@@ -150,7 +150,7 @@ pub fn parse_eqn(inp: &str) {
 
 // for binding purpose
 #[derive(Serialize, Deserialize)]
-pub struct EvalErrWrap {
+pub struct ErrWrap {
     success: bool, // always false
     error: ErrorInfo, // error msg, start pos, length
 }
@@ -158,12 +158,19 @@ pub struct EvalErrWrap {
 #[derive(Serialize, Deserialize)]
 pub struct EvalSuccessWrap {
     success: bool, // always true
-    re: f64,
-    im: f64
+    latex: String,
+    is_nan: bool,
+    is_inf: bool,
+    mantissa: [i16; 10],
+    exp: i8,
+    sign: i8,
+    text: String
 }
 
 #[wasm_bindgen]
 pub fn eval_expr(inp: &str) -> JsValue {
+    set_panic_hook();
+    
     let mut tokens = match parsing::lexer::lex(inp) {
         Ok(tks) => tks,
         Err(pos) => {
@@ -173,7 +180,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 len: 1
             };
 
-            let res = EvalErrWrap {
+            let res = ErrWrap {
                 success: false,
                 error: err
             };
@@ -181,12 +188,12 @@ pub fn eval_expr(inp: &str) -> JsValue {
         }
     };
 
-    let parsed = match parsing::parser::parse_expr(&mut tokens) {
+    let parsed = match parsing::parser::parse(&mut tokens) {
         Ok(expr) => expr,
         Err(err) => {
             let err = parse_error_to_info(err, inp.len());
 
-            let res = EvalErrWrap {
+            let res = ErrWrap {
                 success: false,
                 error: err
             };
@@ -196,24 +203,110 @@ pub fn eval_expr(inp: &str) -> JsValue {
 
     match parsed.eval(&HashMap::new()) {
         Ok(val) => {
-            let res = EvalSuccessWrap {
-                success: true,
-                re: val.re,
-                im: val.im
+            let res = match val.to_raw_parts() {
+                Some((mantissa, dp, sign, exp)) => {
+                    EvalSuccessWrap {
+                        success: true,
+                        latex: parsed.to_tex(0, 0).0,
+                        is_nan: false,
+                        is_inf: false,
+                        mantissa: mantissa,
+                        exp: exp,
+                        sign: sign,
+                        text: val.to_string()
+                    }
+                }
+                None => {
+                    let zeros = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                    if val.is_nan() {
+                        EvalSuccessWrap {
+                            success: true,
+                            latex: parsed.to_tex(0, 0).0,
+                            is_nan: true,
+                            is_inf: false,
+                            mantissa: zeros,
+                            exp: 0,
+                            sign: 0,
+                            text: val.to_string()
+                        }
+                    } else if val.is_inf() {
+                        EvalSuccessWrap {
+                            success: true,
+                            latex: parsed.to_tex(0, 0).0,
+                            is_nan: false,
+                            is_inf: true,
+                            mantissa: zeros,
+                            exp: val.get_sign(),
+                            sign: 0,
+                            text: val.to_string()
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                }
             };
+
 
             serde_wasm_bindgen::to_value(&res).unwrap()
         }
         Err(err) => {
             let err = eval_error_to_info(err);
 
-            let res = EvalErrWrap {
+            let res = ErrWrap {
                 success: false,
                 error: err
             };
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TexSuccessWrap {
+    success: bool, // always true
+    val: String
+}
+
+#[wasm_bindgen]
+pub fn to_tex(inp: &str) -> JsValue {
+    let mut tokens = match parsing::lexer::lex(inp) {
+        Ok(tks) => tks,
+        Err(pos) => {
+            let err = ErrorInfo {
+                msg: "unexpected token".to_string(),
+                start: pos,
+                len: 1
+            };
+
+            let res = ErrWrap {
+                success: false,
+                error: err
+            };
+            return serde_wasm_bindgen::to_value(&res).unwrap();
+        }
+    };
+
+    let parsed = match parsing::parser::parse(&mut tokens) {
+        Ok(expr) => expr,
+        Err(err) => {
+            let err = parse_error_to_info(err, inp.len());
+
+            let res = ErrWrap {
+                success: false,
+                error: err
+            };
+            return serde_wasm_bindgen::to_value(&res).unwrap();
+        }
+    };
+
+    let tex = parsed.to_tex(0, 0);
+
+    let res = TexSuccessWrap {
+        success: true,
+        val: tex.0
+    };
+
+    serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
 

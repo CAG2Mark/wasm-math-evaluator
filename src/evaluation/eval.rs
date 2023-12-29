@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 
-use num_complex::{Complex64, ComplexFloat};
+use std::f64::consts;
+
+use num_bigfloat::BigFloat;
 
 use crate::{ast::{
-    tokens::{Operator, Position, PrefixFn},
+    tokens::{Operator, Position, PrefixFn, MathConst},
     tree::{Expr, ExprPos},
 }, util::gamma};
 
-type VariableMap = HashMap<char, Complex64>;
+type VariableMap = HashMap<char, BigFloat>;
 
 impl ExprPos {
-    pub fn eval(&self, vars: &VariableMap) -> Result<Complex64, EvalError> {
+    pub fn eval(&self, vars: &VariableMap) -> Result<BigFloat, EvalError> {
         self.expr.eval(vars)
     }
 }
@@ -21,10 +23,10 @@ pub enum EvalError {
 }
 
 impl Expr {
-    fn eval(&self, vars: &VariableMap) -> Result<Complex64, EvalError> {
+    fn eval(&self, vars: &VariableMap) -> Result<BigFloat, EvalError> {
         match &self {
-            Expr::Number(n) => Ok(n.into()),
-            Expr::ImaginaryConst => Ok(Complex64 { re: 0.0, im: 1.0 }),
+            Expr::Number(n, _) => Ok(*n),
+            // Expr::ImaginaryConst => Ok(Complex64 { re: 0.0, im: 1.0 }),
             Expr::InfixOp(op, lhs, rhs) => {
                 let lhs_e = lhs.eval(vars)?;
                 let rhs_e = rhs.eval(vars)?;
@@ -34,19 +36,14 @@ impl Expr {
                     Operator::Minus => lhs_e - rhs_e,
                     Operator::Times => lhs_e * rhs_e,
                     Operator::Div => {
-                        if rhs_e.re == 0.0 && rhs_e.im == 0.0 {
+                        if rhs_e.is_zero() {
                             return Err(EvalError::DivByZero(rhs.pos))
                         }
                         lhs_e / rhs_e
                     }
-                    Operator::Mod => {
-                        if rhs_e.re == 0.0 && rhs_e.im == 0.0 {
-                            return Err(EvalError::ModByZero(rhs.pos))
-                        }
-                        lhs_e % rhs_e
-                    }
+                    Operator::Mod => lhs_e % rhs_e,
                     Operator::Factorial => unreachable!(),
-                    Operator::Pow => lhs_e.powc(rhs_e),
+                    Operator::Pow => lhs_e.pow(&rhs_e)
                 };
 
                 Ok(ret)
@@ -70,21 +67,16 @@ impl Expr {
                     PrefixFn::Exp => evaled.exp(),
                     PrefixFn::Ln => evaled.ln(),
                     PrefixFn::Sqrt => evaled.sqrt(),
-                    PrefixFn::Sgn => {
-                        if evaled.re == 0.0 && evaled.im == 0.0 {
-                            Complex64 { re: 0.0, im: 0.0 }
-                        } else {
-                            evaled / evaled.abs()
-                        }
+                    PrefixFn::Sgn => if evaled > BigFloat::from(0) {
+                        BigFloat::from(1)
+                    } else if evaled.is_zero() {
+                        BigFloat::from(0)
+                    } else {
+                        BigFloat::from(-1)
                     }
-                    PrefixFn::Floor => Complex64 {
-                        re: f64::floor(evaled.re),
-                        im: f64::floor(evaled.im),
-                    },
-                    PrefixFn::Ceil => Complex64 {
-                        re: f64::ceil(evaled.re),
-                        im: f64::ceil(evaled.im),
-                    },
+                    PrefixFn::Floor => evaled.floor(),
+                    PrefixFn::Ceil => evaled.ceil(),
+                    PrefixFn::Abs => evaled.abs()
                 };
 
                 Ok(ret)
@@ -103,12 +95,18 @@ impl Expr {
                 let evaled = expr.eval(vars)?;
                 
                 match op {
-                    Operator::Factorial => Ok(gamma::gamma(evaled + 1.0)),
+                    Operator::Factorial => Ok(gamma::gamma_spouge(evaled + num_bigfloat::ONE)),
                     _ => unreachable!(),
                 }
             }
             Expr::Variable(_) => todo!(),
             Expr::OtherFunction(_) => todo!(),
+            Expr::Const(c) => match c {
+                MathConst::PI => Ok(num_bigfloat::PI),
+                MathConst::E => Ok(num_bigfloat::E),
+                MathConst::PHI => Ok((num_bigfloat::ONE + BigFloat::from(5).sqrt()) / num_bigfloat::TWO),
+            },
+            Expr::Nested(e) => e.eval(vars),
         }
     }
 }

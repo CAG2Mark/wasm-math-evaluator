@@ -1,4 +1,5 @@
 use std::fmt;
+use num_bigfloat::BigFloat;
 
 #[derive(Copy, Clone)]
 pub enum Operator {
@@ -30,7 +31,15 @@ pub enum PrefixFn {
     Sqrt,
     Sgn,
     Floor,
-    Ceil
+    Ceil,
+    Abs
+}
+
+#[derive(Copy, Clone)]
+pub enum MathConst {
+    PI,
+    E,
+    PHI
 }
 
 #[derive(Copy, Clone)]
@@ -41,14 +50,15 @@ pub enum OtherFn {
 
 #[derive(Copy, Clone)]
 pub enum Token {
-    Number(f64),
+    Number(BigFloat, usize), // number of decimal places
+    Const(MathConst),
     Op(Operator),
     Variable(char),
     PrefixFunction(PrefixFn),
     OtherFunction(OtherFn),
     OpenBrace,
     CloseBrace,
-    ImaginaryConst,
+    // ImaginaryConst,
     Whitespace
 }
 
@@ -97,6 +107,19 @@ impl fmt::Display for PrefixFn {
             PrefixFn::Sgn => "sgn",
             PrefixFn::Floor => "floor",
             PrefixFn::Ceil => "ceil",
+            PrefixFn::Abs => "abs",
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
+impl fmt::Display for MathConst {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            MathConst::PI => "pi",
+            MathConst::E => "e",
+            MathConst::PHI => "phi",
         };
 
         write!(f, "{}", s)
@@ -117,15 +140,16 @@ impl fmt::Display for OtherFn {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            Token::Number(n) => n.to_string(),
+            Token::Number(n, d) => format!("{:.*}", d, n),
             Token::Op(op) => op.to_string(),
             Token::Variable(ch) => ch.to_string(),
             Token::PrefixFunction(f) => f.to_string(),
             Token::OpenBrace => "(".to_string(),
             Token::CloseBrace => ")".to_string(),
             Token::Whitespace => "<whitespace>".to_string(),
-            Token::ImaginaryConst => "i".to_string(),
+            // Token::ImaginaryConst => "i".to_string(),
             Token::OtherFunction(f) => f.to_string(),
+            Token::Const(c) => c.to_string()
         };
 
         write!(f, "{}", s)

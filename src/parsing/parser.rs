@@ -14,7 +14,7 @@ pub enum ParseError {
 
 pub enum PrattParseError {
     UnexpectedToken(Position),
-    UnexpectedEnd
+    UnexpectedEnd,
 }
 
 enum ExprOrOp {
@@ -24,7 +24,17 @@ enum ExprOrOp {
     PostfixOp(Operator, Position),
 }
 
-pub fn parse_expr(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError> {
+pub fn parse(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError> {
+    let res = parse_expr(tokens)?;
+
+    if tokens.is_empty() {
+        Ok(res)
+    } else {
+        Err(ParseError::UnexpectedToken(tokens.front().unwrap().pos))
+    }
+}
+
+fn parse_expr(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError> {
     let mut l: VecDeque<ExprOrOp> = VecDeque::new();
 
     // Convert into a list of expressions and tokens/operators.
@@ -32,8 +42,27 @@ pub fn parse_expr(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError
         let first = tokens.front().unwrap();
 
         match &first.tk {
-            Token::Number(_) | Token::Variable(_) | Token::OtherFunction(_) | Token::OpenBrace | Token::ImaginaryConst => {
-                l.push_back(ExprOrOp::Ex(parse_atomic(tokens)?));
+            Token::Number(_, _)
+            | Token::Variable(_)
+            | Token::OtherFunction(_)
+            | Token::OpenBrace
+            // | Token::ImaginaryConst
+            | Token::Const(_) => {
+                let next = parse_atomic(tokens)?;
+                
+                
+                // do not allow number followed by number
+                match (l.back(), &next.expr) {
+                    (Some(ExprOrOp::Ex(e)), Expr::Number(_, _))
+                        if matches!(e.expr, Expr::Number(_, _)) =>
+                    {
+                        return Err(ParseError::UnexpectedToken(next.pos))
+                    }
+                    _ => {}
+                }
+                
+
+                l.push_back(ExprOrOp::Ex(next));
             }
 
             Token::PrefixFunction(f) => {
@@ -53,14 +82,14 @@ pub fn parse_expr(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError
 
             Token::CloseBrace => break,
 
-            Token::Whitespace => unreachable!("whitespace seen")
+            Token::Whitespace => unreachable!("whitespace seen"),
         }
     }
 
     // Pratt parse.
 
     let parsed = pratt_parse(&mut l, 0);
-    
+
     match parsed {
         Ok(expr) => Ok(expr),
         Err(err) => match err {
@@ -173,7 +202,7 @@ fn pratt_parse_cont(
             )
         }
         // implicit multiplication
-        Some(ExprOrOp::Ex(_)) if IMPLICIT_TIMES_L_PREC > prec => {
+        Some(ExprOrOp::Ex(_) | ExprOrOp::Prefix(_, _)) if IMPLICIT_TIMES_L_PREC > prec => {
             let acc_pos = acc.pos;
 
             let rhs = pratt_parse(l, IMPLICIT_TIMES_R_PREC)?;
@@ -215,17 +244,26 @@ pub fn parse_atomic(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseErr
             let pos = tk.pos;
 
             let ret = match tk.tk {
+                Token::Const(c) => {
+                    tokens.pop_front();
+                    ExprPos {
+                        expr: Expr::Const(c),
+                        pos,
+                    }
+                }
+                /*
                 Token::ImaginaryConst => {
                     tokens.pop_front();
                     ExprPos {
                         expr: Expr::ImaginaryConst,
-                        pos
+                        pos,
                     }
                 }
-                Token::Number(n) => {
+                */
+                Token::Number(n, d) => {
                     tokens.pop_front();
                     ExprPos {
-                        expr: Expr::Number(n),
+                        expr: Expr::Number(n, d),
                         pos,
                     }
                 }
@@ -245,11 +283,12 @@ pub fn parse_atomic(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseErr
 
                     let end_pos = match tokens.pop_front() {
                         Some(tk) if matches!(tk.tk, Token::CloseBrace) => tk.pos,
-                        _ => return Err(ParseError::BraceNotClosed(pos)),
+                        // _ => return Err(ParseError::BraceNotClosed(pos)),
+                        _ => ret.pos, // Allow unclosed braces
                     };
 
                     ExprPos {
-                        expr: ret.expr,
+                        expr: Expr::Nested(Box::new(ret)),
                         pos: (pos.0, end_pos.1),
                     }
                 }

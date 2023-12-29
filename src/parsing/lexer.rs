@@ -1,11 +1,13 @@
 use std::collections::VecDeque;
 
+use crate::ast::tokens::MathConst;
 use crate::ast::tokens::OtherFn;
 use crate::ast::tokens::PrefixFn;
 use crate::ast::tokens::Operator;
 use crate::ast::tokens::Token;
 use crate::ast::tokens::TokenPos;
-use std::f64::consts;
+
+use num_bigfloat::BigFloat;
 
 type Position = usize;
 
@@ -28,6 +30,7 @@ const PREFIX_FUNCTIONS: &'static [(&'static str, PrefixFn)] = &[
     ("sgn", PrefixFn::Sgn),
     ("floor", PrefixFn::Floor),
     ("ceil", PrefixFn::Ceil),
+    ("abs", PrefixFn::Abs),
 ];
 
 const OTHER_FUNCTIONS: &'static [(&'static str, OtherFn)] = &[
@@ -45,10 +48,10 @@ const OPS: &'static [(&'static str, Operator)] = &[
     ("^", Operator::Pow),
 ];
 
-const MATH_CONSTS: &'static [(&'static str, f64)] = &[
-    ("pi", consts::PI),
-    ("e", consts::E),
-    ("phi", 1.618033988749894848205),
+const MATH_CONSTS: &'static [(&'static str, MathConst)] = &[
+    ("pi", MathConst::PI),
+    ("e", MathConst::E),
+    ("phi", MathConst::PHI),
 ];
 
 const WHITESPACE: &'static [char] = &[
@@ -67,7 +70,7 @@ fn try_lex_prefix_fn(input: &str) -> Option<(Token, usize)> {
 fn try_lex_math_const(input: &str) -> Option<(Token, usize)> {
     for (s, c) in MATH_CONSTS {
         if input.starts_with(s) {
-            return Some((Token::Number(*c), s.len()));
+            return Some((Token::Const(*c), s.len()));
         }
     }
     None
@@ -101,14 +104,17 @@ fn try_lex_variable(input: &str) -> Option<(Token, usize)> {
     }
 }
 
+/*
 fn try_lex_imaginary(input: &str) -> Option<(Token, usize)> {
     let ch = input.chars().next();
 
     match ch {
-        Some(ch) if ch == 'i' => Some((Token::ImaginaryConst, 1)),
+        // i was bullied by an electrical engineer so i have to parse `j` as well
+        Some(ch) if ch == 'i' || ch == 'j' => Some((Token::ImaginaryConst, 1)),
         _ => None,
     }
 }
+*/
 
 fn try_lex_number(input: &str) -> Option<(Token, usize)> {
     let mut it = input.chars();
@@ -118,18 +124,24 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
 
     let mut len = 0;
 
+    let mut decimal_len = 0;
+
     // while the next char exists, and it is a digit, or it is a decimal point/comma if we have not seen one already
     while cur.is_some()
         && (cur.unwrap().is_numeric()
             || (!seen_dot && (cur.unwrap() == '.' || cur.unwrap() == ',')))
     {
         len += 1;
+        if seen_dot {
+            decimal_len += 1;
+        }
 
         // there must be a digit after a dot
         if cur.unwrap() == '.' || cur.unwrap() == ',' {
             seen_dot = true;
             cur = it.next();
             len += 1;
+            decimal_len += 1;
             
             if cur.is_none() || !cur.unwrap().is_numeric() {
                 len -= 2;
@@ -146,12 +158,12 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
 
     let sliced = &input[0..len];
 
-    let num = sliced.parse().unwrap();
+    let num = BigFloat::parse(sliced)?;
 
-    Some((Token::Number(num), len))
+    Some((Token::Number(num, decimal_len), len))
 }
 
-fn try_lex_brace(input: &str) -> Option<(Token, usize)> {
+fn try_lex_brace_pipe(input: &str) -> Option<(Token, usize)> {
     let ch = input.chars().next();
 
     match ch {
@@ -191,9 +203,9 @@ const LEXERS: &'static [Lexer] = &[
     try_lex_math_const,
     try_lex_number,
     try_lex_op,
-    try_lex_imaginary,
+    // try_lex_imaginary,
     try_lex_variable,
-    try_lex_brace,
+    try_lex_brace_pipe,
 ];
 
 pub fn lex(input: &str) -> Result<VecDeque<TokenPos>, Position> {

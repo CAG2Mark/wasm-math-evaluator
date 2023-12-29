@@ -1,110 +1,170 @@
-use num_complex::Complex64;
-use std::f64::consts;
+use num_bigfloat::BigFloat;
+use crate::log;
 
-// g = 8
-// n = 12
-// numbers taken from wikipedia:
-// https://en.wikipedia.org/wiki/Lanczos_approximation
+macro_rules! console_log {
+    // Note that this is using the `log` function imported above during
+    // `bare_bones`
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+}
 
-const GAMMA_P: &[f64] = &[
-    1975.3739023578852322,
-    -4397.3823927922428918,
-    3462.6328459862717019,
-    -1156.9851431631167820,
-    154.53815050252775060,
-    -6.2536716123689161798,
-    0.034642762454736807441,
-    -7.4776171974442977377e-7,
-    6.3041253821852264261e-8,
-    -2.7405717035683877489e-8,
-    4.0486948817567609101e-9,
-];
+// Computed myself.
+// (Using Sage if you're curious)
+/*
+[0.999999999999997091820464226980423814845091856769434826679,
+ 57.1562356658629235165793934859774442732544428929201597974,
+ -59.5979603554754912481422661316028360019101008542062523362,
+ 14.1360979747417471738634195408767260156591640475908033406,
+ -0.491913816097620199782840028530307844163480831247389540127,
+ 0.0000339946499848118886989193415523415528348299560683871662560,
+ 0.0000465236289270485756652302249658228895163875629445539657351,
+ -0.0000983744753048795646765383706347073037313023763295354403184,
+ 0.000158088703224912488836072413443663961027996353183006491358,
+ -0.000210264441724104883192699283005711909975091780943802677890,
+ 0.000217439618115212643196144649603834698887252870433365891148,
+ -0.000164318106536763890217069562280184138735003751345784173915,
+ 0.0000844182239838527432928118153454549852880174385776729071038,
+ -0.0000261908384015814086696650362479549032790025720474993021797,
+ 3.68991826595316227036759674456787385147712197067648273315e-6]
+*/
 
-const GAMMA_LEN: usize = GAMMA_P.len();
-const GAMMA_G: f64 = 8.0;
-const SQRT_2PI: f64 = 2.506628274631000502416;
 
-const FACTORIAL: &[u64] = &[
-    1,
-    1,
-    2,
-    6,
-    24,
-    120,
-    720,
-    5040,
-    40320,
-    362880,
-    3628800,
-    39916800,
-    479001600,
-    6227020800,
-    87178291200,
-    1307674368000,
-    20922789888000,
-    355687428096000,
-    6402373705728000,
-    121645100408832000,
-    2432902008176640000
-];
-
-// Credit for implementation:
-// https://github.com/Bobingstern/Lanczos-Approximation/blob/main/gamma.hpp
-pub fn gamma(z: Complex64) -> Complex64 {
+// Usually accurate up to 15-20 decimal places.
+pub fn gamma(z: BigFloat) -> BigFloat {
     // exact factorial calculation
-    if z.im == 0.0 && z.re.fract() == 0.0 {
-        let x = z.re - 1.0;
+    if z.frac().abs() < num_bigfloat::EPSILON {
+        let mut x = z - num_bigfloat::ONE;
 
-        if x < 0.0 {
+        let mut ans = num_bigfloat::ONE;
+
+        if x < num_bigfloat::ZERO {
             return f64::NAN.into();
         }
 
-        let n = x as usize;
-
-        if n < FACTORIAL.len() {
-            return (FACTORIAL[n] as f64).into()
+        while x.abs() >= num_bigfloat::EPSILON {
+            ans *= x - x.frac();
+            x -= num_bigfloat::ONE;
         }
+        
+        return ans
+    }
+
+    let gamma_p: &[BigFloat] = &[
+        BigFloat::parse("0.999999999999997091820464226980423814845091856769434826679").unwrap(),
+        BigFloat::parse("57.1562356658629235165793934859774442732544428929201597974").unwrap(),
+        BigFloat::parse("-59.5979603554754912481422661316028360019101008542062523362").unwrap(),
+        BigFloat::parse("14.1360979747417471738634195408767260156591640475908033406").unwrap(),
+        BigFloat::parse("-0.491913816097620199782840028530307844163480831247389540127").unwrap(),
+        BigFloat::parse("0.0000339946499848118886989193415523415528348299560683871662560").unwrap(),
+        BigFloat::parse("0.0000465236289270485756652302249658228895163875629445539657351").unwrap(),
+        BigFloat::parse("-0.0000983744753048795646765383706347073037313023763295354403184").unwrap(),
+        BigFloat::parse("0.000158088703224912488836072413443663961027996353183006491358").unwrap(),
+        BigFloat::parse("-0.000210264441724104883192699283005711909975091780943802677890").unwrap(),
+        BigFloat::parse("0.000217439618115212643196144649603834698887252870433365891148").unwrap(),
+        BigFloat::parse("-0.000164318106536763890217069562280184138735003751345784173915").unwrap(),
+        BigFloat::parse("0.0000844182239838527432928118153454549852880174385776729071038").unwrap(),
+        BigFloat::parse("-0.0000261908384015814086696650362479549032790025720474993021797").unwrap(),
+        BigFloat::parse("0.00000368991826595316227036759674456787385147712197067648273315e").unwrap(),
+    ];
+
+    let gamma_len: usize = gamma_p.len();
+    let gamma_g: BigFloat = BigFloat::from(4.7421875);
+    let sqrt_2pi: BigFloat = BigFloat::parse("2.50662827463100050241576528481104525300698674060993831663").unwrap();
+
+    // Reflection formula
+    if z < BigFloat::from(0.5) {
+        let t = num_bigfloat::ONE - z;
+        return num_bigfloat::PI / ((num_bigfloat::PI * z).sin() * gamma(t));
+    }
+
+    let mut x = gamma_p[0];
+
+    let w = z - num_bigfloat::ONE;
+
+    for i in 1..gamma_len {
+        x += gamma_p[i] / (w + BigFloat::from(i as u8));
+    }
+
+    let t = w + gamma_g + BigFloat::from(0.5);
+    let t_pow = t.pow(&(w + BigFloat::from(0.5)));
+    let neg = -t;
+    let exp_t = neg.exp();
+    x * sqrt_2pi * t_pow * exp_t
+}
+
+
+pub fn spouge_coeff(a: u8, k: u8) -> BigFloat {
+    if k == 0 {
+        return (num_bigfloat::PI * BigFloat::from(2)).sqrt();
+    } else {
+        let sgn = if k % 2 == 1 { 1 } else { - 1 };
+        // A little trick.
+        // The formula is
+        // (-1)^(k + 1) (a - k)^(k - 1/2) e^(a - k) / (k - 1)!
+        // To avoid directly computing the factorial which limits
+        // the number of terms we can use, we compute
+        // (a - k)^(k - 1/2)
+        // and 
+        // (k - 1)!
+        // iteratively, adding one term each time.
+        let mut prod = num_bigfloat::ONE;
+        let base = BigFloat::from(a) - BigFloat::from(k);
+        for i in 1..k {
+            prod *= base;
+            prod /= BigFloat::from(i)
+        }
+        // prod is now equal to (a-k)^(k-1) / (k - 1)!
+        // Multiply the remaining (a - k)^(1/2)
+        prod *= base.sqrt();
+
+        // let f = fact(k - 1);
+        // let exponent = BigFloat::from(k) - BigFloat::from(0.5);
+        // let pow_ = BigFloat::from(a - k).pow(&exponent);
+        let exp_ = BigFloat::from(a - k).exp();
+        BigFloat::from(sgn) * exp_ * prod
+    }
+}
+
+pub fn gamma_spouge(z: BigFloat) -> BigFloat {
+    let a: u8 = 34;
+
+    // exact factorial calculation
+    if z.frac().abs() < num_bigfloat::EPSILON {
+        let mut x = z - num_bigfloat::ONE;
+
+        let mut ans = num_bigfloat::ONE;
+
+        if x < num_bigfloat::ZERO {
+            return f64::NAN.into();
+        }
+
+        while x.abs() >= num_bigfloat::EPSILON {
+            ans *= x - x.frac();
+            x -= num_bigfloat::ONE;
+        }
+        
+        return ans
     }
 
     // Reflection formula
-    if z.re < 0.5 {
-        let t = Complex64 {
-            re: 1f64 - z.re,
-            im: -z.im,
-        };
-        let r = z * consts::PI;
-        let y = Complex64 {
-            re: consts::PI,
-            im: 0f64,
-        };
+    if z < BigFloat::from(0.5) {
+        let t = num_bigfloat::ONE - z;
+        return num_bigfloat::PI / ((num_bigfloat::PI * z).sin() * gamma(t));
+    }
+    
+    let mut x = spouge_coeff(a, 0);
 
-        return y / (Complex64::sin(r) * gamma(t));
+    // console_log!("{}", z_bigg);
+    let w = z - BigFloat::from(1);
+
+    for i in 1..a {
+        x += spouge_coeff(a, i) / (w + BigFloat::from(i))
     }
 
-    let z = Complex64 {
-        re: z.re - 1.0,
-        im: z.im,
-    };
-
-    let mut x = Complex64 {
-        re: 0.9999999999999999298,
-        im: 0f64,
-    };
-    for i in 0..GAMMA_LEN {
-        let gamma_pval = Complex64 {
-            re: GAMMA_P[i],
-            im: 0f64,
-        };
-        x += gamma_pval / (z + (i + 1) as f64)
-    }
-
-    let t = Complex64 {
-        re: z.re + 0.5 + GAMMA_G,
-        im: z.im,
-    };
-    let t_pow = t.powc(z + 0.5);
+    let t = w + BigFloat::from(a);
+    let exponent = w + BigFloat::from(0.5);
+    let t_pow = t.pow(&exponent);
     let neg = -t;
     let exp_t = neg.exp();
 
-    x * SQRT_2PI * t_pow * exp_t
+    x * t_pow * exp_t
 }
