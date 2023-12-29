@@ -145,8 +145,8 @@ impl Expr {
                     PrefixFn::Abs => (format!("\\left|{{{}}}\\right|", formatted.0), 0, 0),
                     _ => {
                         let ret = format!("\\operatorname{{{}}}{}", func, formatted.0);
-                        if rp > 6 {
-                            ("\\left(".to_string() + &ret + "\\right)", 0, 0)
+                        if rp > 1 {
+                            (format!("\\left({ret}\\right)"), 0, 0)
                         } else {
                             (ret, 0, 2)
                         }

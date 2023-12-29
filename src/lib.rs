@@ -113,28 +113,26 @@ pub fn print_eval_err(inp: &str, err: EvalError) {
     console_log!("{}", out);
 }
 
-// for binding purpose
-#[derive(Serialize, Deserialize)]
-pub struct ErrWrap {
-    success: bool, // always false
-    error: ErrorInfo, // error msg, start pos, length
-}
 
 #[derive(Serialize, Deserialize)]
-pub struct EvalSuccessWrap {
-    success: bool, // always true
+pub struct EvalWrap {
+    parse_success: bool,
+    eval_success: bool,
     latex: String,
     is_nan: bool,
     is_inf: bool,
     mantissa: [i16; 10],
     exp: i8,
     sign: i8,
-    text: String
+    text: String,
+    error: ErrorInfo
 }
 
 #[wasm_bindgen]
 pub fn eval_expr(inp: &str) -> JsValue {
     set_panic_hook();
+
+    let zeros = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     
     let mut tokens = match parsing::lexer::lex(inp) {
         Ok(tks) => tks,
@@ -145,8 +143,16 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 len: 1
             };
 
-            let res = ErrWrap {
-                success: false,
+            let res = EvalWrap {
+                parse_success: false,
+                eval_success: false,
+                latex: "".to_string(),
+                is_nan: false,
+                is_inf: true,
+                mantissa: zeros,
+                exp: 0,
+                sign: 0,
+                text: "".to_string(),
                 error: err
             };
             return serde_wasm_bindgen::to_value(&res).unwrap();
@@ -158,52 +164,67 @@ pub fn eval_expr(inp: &str) -> JsValue {
         Err(err) => {
             let err = parse_error_to_info(err, inp.len());
 
-            let res = ErrWrap {
-                success: false,
+            let res = EvalWrap {
+                parse_success: false,
+                eval_success: false,
+                latex: "".to_string(),
+                is_nan: false,
+                is_inf: true,
+                mantissa: zeros,
+                exp: 0,
+                sign: 0,
+                text: "".to_string(),
                 error: err
             };
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }
     };
 
+    let empty_error = ErrorInfo { msg: "".to_string(), start: 0, len: 0 };
+
     match parsed.eval(&HashMap::new()) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
                 Some((mantissa, _dp, sign, exp)) => {
-                    EvalSuccessWrap {
-                        success: true,
+                    EvalWrap {
+                        parse_success: true,
+                        eval_success: true,
                         latex: parsed.to_tex(0, 0).0,
                         is_nan: false,
                         is_inf: false,
                         mantissa: mantissa,
                         exp: exp,
                         sign: sign,
-                        text: bigfloat_auto_str(&val)
+                        text: bigfloat_auto_str(&val),
+                        error: empty_error
                     }
                 }
                 None => {
-                    let zeros = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
                     if val.is_nan() {
-                        EvalSuccessWrap {
-                            success: true,
+                        EvalWrap {
+                            parse_success: true,
+                            eval_success: true,
                             latex: parsed.to_tex(0, 0).0,
                             is_nan: true,
                             is_inf: false,
                             mantissa: zeros,
                             exp: 0,
                             sign: 0,
-                            text: val.to_string()
+                            text: val.to_string(),
+                            error: empty_error
                         }
                     } else if val.is_inf() {
-                        EvalSuccessWrap {
-                            success: true,
+                        EvalWrap {
+                            parse_success: true,
+                            eval_success: true,
                             latex: parsed.to_tex(0, 0).0,
                             is_nan: false,
                             is_inf: true,
                             mantissa: zeros,
                             exp: val.get_sign(),
                             sign: 0,
-                            text: val.to_string()
+                            text: val.to_string(),
+                            error: empty_error
                         }
                     } else {
                         unreachable!()
@@ -217,8 +238,16 @@ pub fn eval_expr(inp: &str) -> JsValue {
         Err(err) => {
             let err = eval_error_to_info(err);
 
-            let res = ErrWrap {
-                success: false,
+            let res = EvalWrap {
+                parse_success: true,
+                eval_success: false,
+                latex: parsed.to_tex(0, 0).0,
+                is_nan: false,
+                is_inf: true,
+                mantissa: zeros,
+                exp: 0,
+                sign: 0,
+                text: "".to_string(),
                 error: err
             };
             return serde_wasm_bindgen::to_value(&res).unwrap();

@@ -10,10 +10,9 @@ To build, make sure you have `wasm-pack` installed. Then run:
 ```bash
 wasm-pack build --target web
 ```
-To see a live demo, first copy the binaries to `www/wasm-math/`:
+To see a live demo, first copy the binaries to `www/wasm-math-evaluator/`:
 ```bash
-mkdir -p www/wasm-math/
-cp -r pkg/. www/wasm-math/
+cp -r pkg/. www/wasm-math-evaluator/
 ```
 Then, start a webserver in `www`. For example, using Python:
 ```bash
