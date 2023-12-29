@@ -12,15 +12,15 @@ use num_bigfloat::BigFloat;
 type Position = usize;
 
 const PREFIX_FUNCTIONS: &'static [(&'static str, PrefixFn)] = &[
-    ("sin", PrefixFn::Sin),
-    ("cos", PrefixFn::Cos),
-    ("tan", PrefixFn::Tan),
     ("arcsin", PrefixFn::Arcsin),
     ("arccos", PrefixFn::Arccos),
     ("arctan", PrefixFn::Arctan),
     ("sinh", PrefixFn::Sinh),
     ("cosh", PrefixFn::Cosh),
     ("tanh", PrefixFn::Tanh),
+    ("sin", PrefixFn::Sin),
+    ("cos", PrefixFn::Cos),
+    ("tan", PrefixFn::Tan),
     ("arsinh", PrefixFn::Arsinh),
     ("arcosh", PrefixFn::Arcosh),
     ("artanh", PrefixFn::Artanh),

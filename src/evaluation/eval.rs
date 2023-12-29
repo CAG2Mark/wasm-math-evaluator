@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use num_bigfloat::BigFloat;
 
 use crate::{ast::{
-    tokens::{Operator, Position, PrefixFn, MathConst},
+    tokens::{Operator, Position, PrefixFn, MathConst, OtherFn},
     tree::{Expr, ExprPos},
-}, util::gamma};
+}, util::{gamma, combinatorics::{ncr, npr}}};
 
 type VariableMap = HashMap<char, BigFloat>;
 
@@ -15,7 +15,6 @@ impl ExprPos {
 }
 
 pub enum EvalError {
-    DivByZero(Position),
     ModByZero(Position),
     VariableNotFound(String, Position)
 }
@@ -33,12 +32,7 @@ impl Expr {
                     Operator::Plus => lhs_e + rhs_e,
                     Operator::Minus => lhs_e - rhs_e,
                     Operator::Times => lhs_e * rhs_e,
-                    Operator::Div => {
-                        if rhs_e.is_zero() {
-                            return Err(EvalError::DivByZero(rhs.pos))
-                        }
-                        lhs_e / rhs_e
-                    }
+                    Operator::Div => lhs_e / rhs_e,
                     Operator::Mod => lhs_e % rhs_e,
                     Operator::Factorial => unreachable!(),
                     Operator::Pow => lhs_e.pow(&rhs_e)
@@ -93,7 +87,7 @@ impl Expr {
                 let evaled = expr.eval(vars)?;
                 
                 match op {
-                    Operator::Factorial => Ok(gamma::gamma_spouge(evaled + num_bigfloat::ONE)),
+                    Operator::Factorial => Ok(gamma::factorial(&evaled)),
                     _ => unreachable!(),
                 }
             }
@@ -101,7 +95,18 @@ impl Expr {
                 Some(val) => Ok(*val),
                 None => Err(EvalError::VariableNotFound(v.to_string(), *pos)),
             },
-            Expr::OtherFunction(_, _) => Ok(BigFloat::from(0)),
+            Expr::OtherFunction(f, params) => match f {
+                OtherFn::Ncr => {
+                    let n = params[0].eval(vars)?;
+                    let r = params[1].eval(vars)?;
+                    Ok(ncr(&n, &r))
+                },
+                OtherFn::Npr => {
+                    let n = params[0].eval(vars)?;
+                    let r = params[1].eval(vars)?;
+                    Ok(npr(&n, &r))
+                }
+            },
             Expr::Const(c) => match c {
                 MathConst::PI => Ok(num_bigfloat::PI),
                 MathConst::E => Ok(num_bigfloat::E),

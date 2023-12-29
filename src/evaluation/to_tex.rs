@@ -1,26 +1,15 @@
-use num_bigfloat::BigFloat;
-
 use crate::ast::tokens::MathConst;
 use crate::ast::tokens::Operator;
 use crate::ast::tokens::OtherFn;
 use crate::ast::tokens::PrefixFn;
 use crate::ast::tree::Expr;
 use crate::ast::tree::ExprPos;
-
-use crate::log;
-use crate::util::bigfloat2str;
 use crate::util::bigfloat2str::bigfloat_to_str;
 
 impl ExprPos {
     pub fn to_tex(&self, lp: u16, rp: u16) -> (String, u8, u8) {
         self.expr.to_tex(lp, rp)
     }
-}
-
-macro_rules! console_log {
-    // Note that this is using the `log` function imported above during
-    // `bare_bones`
-    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
 
 impl Expr {

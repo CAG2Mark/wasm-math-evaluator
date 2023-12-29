@@ -22,6 +22,7 @@ use num_bigfloat::BigFloat;
 
 
 // Usually accurate up to 15-20 decimal places.
+// Unused, Spouge's approximation is way better.
 pub fn gamma(z: BigFloat) -> BigFloat {
     // exact factorial calculation
     if z.frac().abs() < num_bigfloat::EPSILON {
@@ -117,12 +118,12 @@ pub fn spouge_coeff(a: u8, k: u8) -> BigFloat {
     }
 }
 
-pub fn gamma_spouge(z: BigFloat) -> BigFloat {
+pub fn gamma_spouge(z: &BigFloat) -> BigFloat {
     let a: u8 = 34;
 
     // exact factorial calculation
     if z.frac().abs() < num_bigfloat::EPSILON {
-        let mut x = z - num_bigfloat::ONE;
+        let mut x = *z - num_bigfloat::ONE;
 
         let mut ans = num_bigfloat::ONE;
 
@@ -139,7 +140,7 @@ pub fn gamma_spouge(z: BigFloat) -> BigFloat {
     }
 
     // Reflection formula
-    if z < BigFloat::from(0.5) {
+    if z < &BigFloat::from(0.5) {
         let t = num_bigfloat::ONE - z;
         return num_bigfloat::PI / ((num_bigfloat::PI * z).sin() * gamma(t));
     }
@@ -147,7 +148,7 @@ pub fn gamma_spouge(z: BigFloat) -> BigFloat {
     let mut x = spouge_coeff(a, 0);
 
     // console_log!("{}", z_bigg);
-    let w = z - BigFloat::from(1);
+    let w = *z - BigFloat::from(1);
 
     for i in 1..a {
         x += spouge_coeff(a, i) / (w + BigFloat::from(i))
@@ -160,4 +161,8 @@ pub fn gamma_spouge(z: BigFloat) -> BigFloat {
     let exp_t = neg.exp();
 
     x * t_pow * exp_t
+}
+
+pub fn factorial(z: &BigFloat) -> BigFloat {
+    return gamma_spouge(&(num_bigfloat::ONE + z))
 }

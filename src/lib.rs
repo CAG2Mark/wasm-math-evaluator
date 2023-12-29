@@ -8,7 +8,6 @@ pub mod evaluation;
 use std::collections::HashMap;
 
 use evaluation::eval::EvalError;
-use num_bigfloat::BigFloat;
 use parsing::parser::ParseError;
 use util::bigfloat2str::bigfloat_auto_str;
 use utils::set_panic_hook;
@@ -51,21 +50,6 @@ macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
 
-#[wasm_bindgen]
-pub fn greet() {
-    alert("Hello, wasm-math!");
-}
-
-#[wasm_bindgen]
-pub fn lex_eqn(inp: &str) {
-    let tokens = parsing::lexer::lex(inp);
-
-    match tokens {
-        Ok(tks) => tks.iter().for_each(|t| console_log!("{}", t)),
-        Err(pos) => console_log!("unexpected token at position {}", pos),
-    }
-}
-
 
 #[derive(Serialize, Deserialize)]
 pub struct ErrorInfo {
@@ -98,7 +82,6 @@ fn parse_error_to_info(err: ParseError, inp_len: usize) -> ErrorInfo {
 
 fn eval_error_to_info(err: EvalError) -> ErrorInfo {
     let (msg, pos) = match err {
-        EvalError::DivByZero(pos) => ("division by zero".to_string(), pos),
         EvalError::ModByZero(pos) => ("mod by zero".to_string(), pos),
         EvalError::VariableNotFound(var_name, pos) => (format!("variable {var_name} not found"), pos)
     };
@@ -129,27 +112,6 @@ pub fn print_eval_err(inp: &str, err: EvalError) {
 
     console_log!("{}", out);
 }
-
-#[wasm_bindgen]
-pub fn parse_eqn(inp: &str) {
-    // set_panic_hook();
-
-    let mut tokens = match parsing::lexer::lex(inp) {
-        Ok(tks) => tks,
-        Err(pos) => {
-            console_log!("unexpected token at position {}", pos);
-            return;
-        }
-    };
-
-    let parsed = parsing::parser::parse(&mut tokens);
-
-    match parsed {
-        Ok(expr) => console_log!("{}", expr),
-        Err(err) => print_error(inp, err)
-    }
-}
-
 
 // for binding purpose
 #[derive(Serialize, Deserialize)]
@@ -262,52 +224,4 @@ pub fn eval_expr(inp: &str) -> JsValue {
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }
     }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct TexSuccessWrap {
-    success: bool, // always true
-    val: String
-}
-
-#[wasm_bindgen]
-pub fn to_tex(inp: &str) -> JsValue {
-    let mut tokens = match parsing::lexer::lex(inp) {
-        Ok(tks) => tks,
-        Err(pos) => {
-            let err = ErrorInfo {
-                msg: "unexpected token".to_string(),
-                start: pos,
-                len: 1
-            };
-
-            let res = ErrWrap {
-                success: false,
-                error: err
-            };
-            return serde_wasm_bindgen::to_value(&res).unwrap();
-        }
-    };
-
-    let parsed = match parsing::parser::parse(&mut tokens) {
-        Ok(expr) => expr,
-        Err(err) => {
-            let err = parse_error_to_info(err, inp.len());
-
-            let res = ErrWrap {
-                success: false,
-                error: err
-            };
-            return serde_wasm_bindgen::to_value(&res).unwrap();
-        }
-    };
-
-    let tex = parsed.to_tex(0, 0);
-
-    let res = TexSuccessWrap {
-        success: true,
-        val: tex.0
-    };
-
-    serde_wasm_bindgen::to_value(&res).unwrap()
 }

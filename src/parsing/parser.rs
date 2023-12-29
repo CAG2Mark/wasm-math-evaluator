@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use crate::log;
 
 use crate::ast::{
     tokens::{Operator, Position, PrefixFn, Token, TokenPos, OtherFn},
@@ -55,7 +54,7 @@ fn parse_expr(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
                 
                 // do not allow number followed by number
                 match (l.back(), &next.expr) {
-                    (Some(ExprOrOp::Ex(ExprPos { expr: Expr::Number(_, _), pos })), Expr::Number(_, _)) =>
+                    (Some(ExprOrOp::Ex(ExprPos { expr: Expr::Number(_, _), pos: _ })), Expr::Number(_, _)) =>
                         return Err(ParseError::UnexpectedToken(next.pos)),
                     _ => {}
                 }
@@ -248,7 +247,7 @@ fn parse_separated_params(tokens: &mut Tokens, num_params: usize) -> Result<Vec<
 
     ret.push(parse_expr(tokens)?);
 
-    for i in 1..num_params {
+    for _i in 1..num_params {
         match tokens.pop_front() {
             Some(TokenPos { tk: Token::Comma, ..}) => { },
             Some(TokenPos { tk: _, pos }) => return Err(ParseError::UnexpectedToken(pos)),
