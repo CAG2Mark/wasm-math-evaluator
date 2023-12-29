@@ -44,10 +44,9 @@ fn to_digits_str(mantissa: [i16; 10]) -> String {
         if *x == 0 {
             continue;
         }
-        // left align, pad right with zeros
-
+        // right align, pad left with zeros
         if started {
-            cur += &format!("{:0<4}", x)
+            cur += &format!("{:0>4}", x)
         } else {
             cur += &x.to_string()
         }
