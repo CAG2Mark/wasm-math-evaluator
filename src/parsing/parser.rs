@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
+use crate::log;
 
 use crate::ast::{
-    tokens::{Operator, Position, PrefixFn, Token, TokenPos},
+    tokens::{Operator, Position, PrefixFn, Token, TokenPos, OtherFn},
     tree::{Expr, ExprPos},
 };
 
@@ -24,7 +25,9 @@ enum ExprOrOp {
     PostfixOp(Operator, Position),
 }
 
-pub fn parse(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError> {
+type Tokens = VecDeque<TokenPos>;
+
+pub fn parse(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
     let res = parse_expr(tokens)?;
 
     if tokens.is_empty() {
@@ -34,7 +37,7 @@ pub fn parse(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError> {
     }
 }
 
-fn parse_expr(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError> {
+fn parse_expr(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
     let mut l: VecDeque<ExprOrOp> = VecDeque::new();
 
     // Convert into a list of expressions and tokens/operators.
@@ -50,14 +53,10 @@ fn parse_expr(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError> {
             | Token::Const(_) => {
                 let next = parse_atomic(tokens)?;
                 
-                
                 // do not allow number followed by number
                 match (l.back(), &next.expr) {
-                    (Some(ExprOrOp::Ex(e)), Expr::Number(_, _))
-                        if matches!(e.expr, Expr::Number(_, _)) =>
-                    {
-                        return Err(ParseError::UnexpectedToken(next.pos))
-                    }
+                    (Some(ExprOrOp::Ex(ExprPos { expr: Expr::Number(_, _), pos })), Expr::Number(_, _)) =>
+                        return Err(ParseError::UnexpectedToken(next.pos)),
                     _ => {}
                 }
                 
@@ -83,6 +82,7 @@ fn parse_expr(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError> {
             Token::CloseBrace => break,
 
             Token::Whitespace => unreachable!("whitespace seen"),
+            Token::Comma => break
         }
     }
 
@@ -236,16 +236,40 @@ fn pratt_parse_cont(
     }
 }
 
+pub fn get_param_count(func: &OtherFn) -> usize { 
+    match func {
+        OtherFn::Ncr => 2,
+        OtherFn::Npr => 2
+    }
+}
+
+fn parse_separated_params(tokens: &mut Tokens, num_params: usize) -> Result<Vec<ExprPos>, ParseError> {
+    let mut ret = vec![];
+
+    ret.push(parse_expr(tokens)?);
+
+    for i in 1..num_params {
+        match tokens.pop_front() {
+            Some(TokenPos { tk: Token::Comma, ..}) => { },
+            Some(TokenPos { tk: _, pos }) => return Err(ParseError::UnexpectedToken(pos)),
+            None => return Err(ParseError::UnexpectedEnd)
+        }
+
+        ret.push(parse_expr(tokens)?);
+    }
+
+    return Ok(ret);
+}
+
 // Atomic expressions are single variables, numbers, bracketed exprs, or function calls with more than two arguments.
 // Function calls with only one argument are treated like prefix operators.
-pub fn parse_atomic(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseError> {
-    match &tokens.front() {
+pub fn parse_atomic(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
+    match tokens.pop_front() {
         Some(tk) => {
             let pos = tk.pos;
 
             let ret = match tk.tk {
                 Token::Const(c) => {
-                    tokens.pop_front();
                     ExprPos {
                         expr: Expr::Const(c),
                         pos,
@@ -261,29 +285,44 @@ pub fn parse_atomic(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseErr
                 }
                 */
                 Token::Number(n, d) => {
-                    tokens.pop_front();
                     ExprPos {
                         expr: Expr::Number(n, d),
                         pos,
                     }
                 }
                 Token::Variable(v) => {
-                    tokens.pop_front();
                     ExprPos {
                         expr: Expr::Variable(v),
                         pos,
                     }
                 }
-                Token::OtherFunction(_) => todo!(),
+                Token::OtherFunction(f) => {
+                    let num_params = get_param_count(&f);
+                    
+                    match tokens.pop_front() {
+                        Some(TokenPos { tk: Token::OpenBrace, pos: _ }) => { },
+                        Some(TokenPos { tk: _, pos }) => return Err(ParseError::UnexpectedToken(pos)),
+                        None => return Err(ParseError::UnexpectedEnd)
+                    };
+
+                    let ret = parse_separated_params(tokens, num_params)?;
+
+                    let end_pos = match tokens.pop_front() {
+                        Some(TokenPos {tk: Token::CloseBrace, pos}) => pos,
+                        _ => ret.last().unwrap().pos, // Allow unclosed braces. Also assume functions have at least one param
+                    };
+
+                    ExprPos {
+                        expr: Expr::OtherFunction(f, ret),
+                        pos: (pos.0, end_pos.1),
+                    }
+                }
 
                 Token::OpenBrace => {
-                    tokens.pop_front();
-
                     let ret = parse_expr(tokens)?;
 
                     let end_pos = match tokens.pop_front() {
                         Some(tk) if matches!(tk.tk, Token::CloseBrace) => tk.pos,
-                        // _ => return Err(ParseError::BraceNotClosed(pos)),
                         _ => ret.pos, // Allow unclosed braces
                     };
 
@@ -298,6 +337,7 @@ pub fn parse_atomic(tokens: &mut VecDeque<TokenPos>) -> Result<ExprPos, ParseErr
                 }
 
                 Token::Whitespace => unreachable!("whitespace detected"),
+                Token::Comma => return Err(ParseError::UnexpectedToken(pos)),
             };
 
             Ok(ret)

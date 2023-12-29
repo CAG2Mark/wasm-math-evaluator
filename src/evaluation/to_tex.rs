@@ -2,9 +2,14 @@ use num_bigfloat::BigFloat;
 
 use crate::ast::tokens::MathConst;
 use crate::ast::tokens::Operator;
+use crate::ast::tokens::OtherFn;
 use crate::ast::tokens::PrefixFn;
 use crate::ast::tree::Expr;
 use crate::ast::tree::ExprPos;
+
+use crate::log;
+use crate::util::bigfloat2str;
+use crate::util::bigfloat2str::bigfloat_to_str;
 
 impl ExprPos {
     pub fn to_tex(&self, lp: u16, rp: u16) -> (String, u8, u8) {
@@ -12,77 +17,10 @@ impl ExprPos {
     }
 }
 
-// kind of dirty but it works...
-fn bigfloat2str(v: &BigFloat, decimal_digits: usize) -> String {
-    if v.is_nan() || v.is_inf() {
-        return v.to_string()
-    }
-
-    let mut cur = v.to_string();
-    
-    let err: i8;
-    // find position of "e"
-    match cur.find('e') {
-        Some(e) => {
-            err = str::parse(&cur[e + 1..]).unwrap();
-            cur = cur[0..e].to_string()
-        },
-        None => err = 0,
-    }
-
-    if err == 0 {
-        let l = cur.len().min(decimal_digits + 2);
-        if decimal_digits == 0 {
-            return cur[..1].to_string()
-        }
-        return cur[..l].to_string()
-    }
-
-    // remove '.' (the library always adds a decimal point)
-    cur = cur[..1].to_string() + &cur[2..];
-
-    // case 1: we need to add a decimal point at the start
-    if err < 0 {
-        let l = cur.len().min(decimal_digits - (-err as usize) + 1);
-        if l == 0 {
-            return "0".to_string();
-        }
-
-        let mut pre: String = "0.".to_string();
-        for _ in 0..(-err - 1) {
-            pre += "0"
-        }
-        // truncate decimal points
-        
-        return pre + &cur[0..l]
-    }
-    // case 2: decimal point is added in between
-    if (err as usize) < cur.len() - 1 {
-        let idx = err as usize + 1;
-        let first_part = &cur[..idx];
-        let second_part = &cur[idx..];
-        
-        if decimal_digits == 0 {
-            return first_part.to_string();
-        }
-        let l = second_part.len().min(decimal_digits);
-
-        let second_sliced = &second_part[..l];
-
-        return first_part.to_string() + "." + second_sliced;
-    }
-    // case 3: decimal point implies the number is exactly an integer
-    if (err as usize) == cur.len() - 1 {
-        return cur
-    }
-
-    // case 4: need to add zeros
-    let add = decimal_digits - cur.len() + 1;
-    for _ in 0..add {
-        cur += "0"
-    }
-
-    return cur
+macro_rules! console_log {
+    // Note that this is using the `log` function imported above during
+    // `bare_bones`
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
 
 impl Expr {
@@ -258,12 +196,23 @@ impl Expr {
                 _ => unreachable!(),
             },
             Expr::Variable(chr) => (chr.to_string() + " ", 0, 0),
-            Expr::OtherFunction(_) => todo!(),
+            Expr::OtherFunction(f, params) => match f {
+                OtherFn::Ncr => {
+                    let n = params[0].to_tex(0, 0).0;
+                    let r = params[1].to_tex(0, 0).0;
+                    (format!("\\binom{{{n}}}{{{r}}}"), 0, 0)
+                }
+                OtherFn::Npr => {
+                    let n = params[0].to_tex(0, 0).0;
+                    let r = params[1].to_tex(0, 0).0;
+                    (format!("P^{{{n}}}_{{{r}}}"), 0, 2)
+                }
+            },
             Expr::Number(n, d) => {
                 let ret = if n.frac().abs() < num_bigfloat::EPSILON {
-                    bigfloat2str(n, *d)
+                    bigfloat_to_str(n, *d)
                 } else {
-                    bigfloat2str(n, *d)
+                    bigfloat_to_str(n, *d)
                 };
 
                 (ret, 2, 1)

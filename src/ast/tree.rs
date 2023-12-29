@@ -16,7 +16,7 @@ pub enum Expr {
     Variable(char),
     Nested(Box<ExprPos>),
     Const(MathConst),
-    OtherFunction(OtherFn),
+    OtherFunction(OtherFn, Vec<ExprPos>),
     Number(BigFloat, usize),
     // ImaginaryConst
 }
@@ -40,7 +40,10 @@ impl fmt::Display for Expr {
             Expr::PrefixOp(op, val) => write!(f, "({}{})", op, val),
             Expr::PostfixOp(op, val) => write!(f, "({}{})", val, op),
             Expr::Variable(c) => write!(f, "{}", c),
-            Expr::OtherFunction(_) => todo!(),
+            Expr::OtherFunction(f_, params) => {
+                let ps = params.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
+                write!(f, "{}({})", f_, ps)
+            }
             // Expr::ImaginaryConst => write!(f, "i"),
             Expr::Number(n, d) => write!(f, "{:.*}", d, n),
             Expr::Const(c) => write!(f, "{}", c),

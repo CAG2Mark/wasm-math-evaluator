@@ -10,17 +10,18 @@ type VariableMap = HashMap<char, BigFloat>;
 
 impl ExprPos {
     pub fn eval(&self, vars: &VariableMap) -> Result<BigFloat, EvalError> {
-        self.expr.eval(vars)
+        self.expr.eval(vars, &self.pos)
     }
 }
 
 pub enum EvalError {
     DivByZero(Position),
     ModByZero(Position),
+    VariableNotFound(String, Position)
 }
 
 impl Expr {
-    fn eval(&self, vars: &VariableMap) -> Result<BigFloat, EvalError> {
+    fn eval(&self, vars: &VariableMap, pos: &Position) -> Result<BigFloat, EvalError> {
         match &self {
             Expr::Number(n, _) => Ok(*n),
             // Expr::ImaginaryConst => Ok(Complex64 { re: 0.0, im: 1.0 }),
@@ -96,8 +97,11 @@ impl Expr {
                     _ => unreachable!(),
                 }
             }
-            Expr::Variable(_) => todo!(),
-            Expr::OtherFunction(_) => todo!(),
+            Expr::Variable(v) => match vars.get(v) {
+                Some(val) => Ok(*val),
+                None => Err(EvalError::VariableNotFound(v.to_string(), *pos)),
+            },
+            Expr::OtherFunction(_, _) => Ok(BigFloat::from(0)),
             Expr::Const(c) => match c {
                 MathConst::PI => Ok(num_bigfloat::PI),
                 MathConst::E => Ok(num_bigfloat::E),

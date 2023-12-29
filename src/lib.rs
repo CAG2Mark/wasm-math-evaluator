@@ -8,7 +8,9 @@ pub mod evaluation;
 use std::collections::HashMap;
 
 use evaluation::eval::EvalError;
+use num_bigfloat::BigFloat;
 use parsing::parser::ParseError;
+use util::bigfloat2str::bigfloat_auto_str;
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
@@ -96,12 +98,13 @@ fn parse_error_to_info(err: ParseError, inp_len: usize) -> ErrorInfo {
 
 fn eval_error_to_info(err: EvalError) -> ErrorInfo {
     let (msg, pos) = match err {
-        EvalError::DivByZero(pos) => ("division by zero", pos),
-        EvalError::ModByZero(pos) => ("mod by zero", pos),
+        EvalError::DivByZero(pos) => ("division by zero".to_string(), pos),
+        EvalError::ModByZero(pos) => ("mod by zero".to_string(), pos),
+        EvalError::VariableNotFound(var_name, pos) => (format!("variable {var_name} not found"), pos)
     };
 
     ErrorInfo {
-        msg: msg.to_string(), start: pos.0, len: pos.1 - pos.0
+        msg: msg, start: pos.0, len: pos.1 - pos.0
     }
 }
 
@@ -204,7 +207,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
     match parsed.eval(&HashMap::new()) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
-                Some((mantissa, dp, sign, exp)) => {
+                Some((mantissa, _dp, sign, exp)) => {
                     EvalSuccessWrap {
                         success: true,
                         latex: parsed.to_tex(0, 0).0,
@@ -213,7 +216,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                         mantissa: mantissa,
                         exp: exp,
                         sign: sign,
-                        text: val.to_string()
+                        text: bigfloat_auto_str(&val)
                     }
                 }
                 None => {
@@ -307,11 +310,4 @@ pub fn to_tex(inp: &str) -> JsValue {
     };
 
     serde_wasm_bindgen::to_value(&res).unwrap()
-}
-
-
-#[wasm_bindgen]
-pub fn add(x: u64, y: u64) -> u64 {
-    console_log!("{} + {} = {}", x, y, x + y);
-    x + y
 }

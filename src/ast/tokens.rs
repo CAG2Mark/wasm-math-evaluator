@@ -58,6 +58,7 @@ pub enum Token {
     OtherFunction(OtherFn),
     OpenBrace,
     CloseBrace,
+    Comma,
     // ImaginaryConst,
     Whitespace
 }
@@ -149,7 +150,8 @@ impl fmt::Display for Token {
             Token::Whitespace => "<whitespace>".to_string(),
             // Token::ImaginaryConst => "i".to_string(),
             Token::OtherFunction(f) => f.to_string(),
-            Token::Const(c) => c.to_string()
+            Token::Const(c) => c.to_string(),
+            Token::Comma => ",".to_string(),
         };
 
         write!(f, "{}", s)

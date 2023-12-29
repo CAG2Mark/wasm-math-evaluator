@@ -116,6 +116,10 @@ fn try_lex_imaginary(input: &str) -> Option<(Token, usize)> {
 }
 */
 
+fn is_decimal_point(ch: char) -> bool {
+    return ch == '.';
+}
+
 fn try_lex_number(input: &str) -> Option<(Token, usize)> {
     let mut it = input.chars();
     let mut seen_dot = false;
@@ -129,7 +133,7 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
     // while the next char exists, and it is a digit, or it is a decimal point/comma if we have not seen one already
     while cur.is_some()
         && (cur.unwrap().is_numeric()
-            || (!seen_dot && (cur.unwrap() == '.' || cur.unwrap() == ',')))
+            || (!seen_dot && (is_decimal_point(cur.unwrap()))))
     {
         len += 1;
         if seen_dot {
@@ -137,7 +141,7 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
         }
 
         // there must be a digit after a dot
-        if cur.unwrap() == '.' || cur.unwrap() == ',' {
+        if is_decimal_point(cur.unwrap()) {
             seen_dot = true;
             cur = it.next();
             len += 1;
@@ -156,7 +160,7 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
         return None
     }
 
-    let sliced = &input[0..len];
+    let sliced = &input[0..len].replace(",", ".");
 
     let num = BigFloat::parse(sliced)?;
 
@@ -169,6 +173,15 @@ fn try_lex_brace_pipe(input: &str) -> Option<(Token, usize)> {
     match ch {
         Some('(') => Some((Token::OpenBrace, 1)),
         Some(')') => Some((Token::CloseBrace, 1)),
+        _ => None,
+    }
+}
+
+fn try_lex_comma(input: &str) -> Option<(Token, usize)> {
+    let ch = input.chars().next();
+
+    match ch {
+        Some(',') => Some((Token::Comma, 1)),
         _ => None,
     }
 }
@@ -203,6 +216,7 @@ const LEXERS: &'static [Lexer] = &[
     try_lex_math_const,
     try_lex_number,
     try_lex_op,
+    try_lex_comma,
     // try_lex_imaginary,
     try_lex_variable,
     try_lex_brace_pipe,
