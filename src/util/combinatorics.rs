@@ -17,10 +17,6 @@ fn ncr_int_int(n: i128, r: i128) -> BigFloat {
     if n == 0 && r == 0 {
         return num_bigfloat::ONE
     }
-
-    if r < 0 {
-        return num_bigfloat::ZERO
-    }
     
     if n < r && n >= 0 {
         return num_bigfloat::ZERO
@@ -61,6 +57,10 @@ fn ncr_int(n: &BigFloat, r: i128) -> BigFloat {
 }
 
 pub fn ncr(n: &BigFloat, r: &BigFloat) -> BigFloat {
+    if r < &num_bigfloat::ZERO {
+        return num_bigfloat::ZERO
+    }
+    
     if r.frac().abs() < EPSILON {
         let r_int = match r.to_i128() {
             Some(v) => v,
@@ -68,6 +68,7 @@ pub fn ncr(n: &BigFloat, r: &BigFloat) -> BigFloat {
         };
         return ncr_int(n, r_int)
     }
+
     factorial(n) / (factorial(&(*n - r)) * factorial(r))
 }
 
