@@ -4,6 +4,22 @@ pub fn get_exponent(v: &BigFloat) -> i64 {
     v.abs().log10().floor().to_i64().unwrap()
 }
 
+pub fn get_significant_digits(v: &BigFloat) -> usize {
+    let (mantissa, ..) = v.to_raw_parts().unwrap();
+
+    let m = mantissa_tostr(mantissa, false);
+    let mut l: usize = 0;
+    for ch in m.chars().rev() {
+        if ch == '0' {
+            l += 1;
+        } else {
+            break;
+        }
+    }
+
+    m.len() - l
+}
+
 pub fn try_to_int(v: &BigFloat) -> Option<i128> {
     if (*v - &v.int()).abs() < num_bigfloat::EPSILON {
         v.int().to_i128()
@@ -27,10 +43,6 @@ pub fn get_decimal_places(v: &BigFloat) -> usize {
 pub fn bigfloat_auto_str(v: &BigFloat) -> String {
     if v.is_nan() || v.is_inf() {
         return v.to_string();
-    }
-
-    if v.is_zero() {
-        return "0".to_string();
     }
 
     if v.abs() < num_bigfloat::EPSILON {
@@ -78,17 +90,25 @@ pub fn bigfloat_scientific(v: &BigFloat) -> String {
         return v.to_string();
     }
 
-    if v.is_zero() {
+    if v.abs() < num_bigfloat::EPSILON {
         return "0".to_string();
     }
 
     let (mantissa, _dp, sign, _exp) = v.to_raw_parts().unwrap();
-
-    let cur = mantissa_tostr(mantissa, false);
-
+    
     let exp_adjusted = get_exponent(v);
 
-    let ret = cur[..1].to_string() + "." + &cur[1..] + &format!("\\times10^{{{exp_adjusted}}}");
+    let significant_digits = get_significant_digits(v);
+
+    let mut cur = mantissa_tostr(mantissa, false);
+    let trunc = significant_digits.min(cur.len());
+    cur = cur[..trunc].to_owned();
+
+    let ret = if trunc == 1 {
+        cur[..1].to_string() + &format!("\\times10^{{{exp_adjusted}}}")
+    } else {
+        cur[..1].to_string() + "." + &cur[1..] + &format!("\\times10^{{{exp_adjusted}}}")
+    };
 
     if sign == 1 {
         ret

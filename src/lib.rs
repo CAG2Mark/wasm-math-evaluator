@@ -196,7 +196,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                     is_inf: false,
                     is_exact: val.is_zero() || (get_exponent(&val) + get_decimal_places(&val) as i64) < 39,
                     mantissa: mantissa_tostr(mantissa, true),
-                    exp: get_exponent(&val),
+                    exp: if val.is_zero() { 0 } else { get_exponent(&val) },
                     sign: sign,
                     text: bigfloat_auto_str(&val),
                     error: empty_error,
