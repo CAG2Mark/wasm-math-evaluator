@@ -1,10 +1,7 @@
 use num_bigfloat::BigFloat;
-use crate::log;
 
-macro_rules! console_log {
-    // Note that this is using the `log` function imported above during
-    // `bare_bones`
-    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+pub fn get_exponent(v: &BigFloat) -> i64 {
+    v.abs().log10().floor().to_i64().unwrap()
 }
 
 // auto determine decimal places
@@ -19,7 +16,7 @@ pub fn bigfloat_auto_str(v: &BigFloat) -> String {
 
     // If the exponent is too extreme
     // use scientific notation
-    let exp_adjusted = v.abs().log10().floor().to_i128().unwrap();
+    let exp_adjusted = get_exponent(v);
 
     if exp_adjusted >= 30 || exp_adjusted <= -5 {
         return bigfloat_scientific(v);
@@ -36,7 +33,7 @@ pub fn bigfloat_auto_str(v: &BigFloat) -> String {
     return bigfloat_to_str(v, d);
 }
 
-fn to_digits_str(mantissa: [i16; 10]) -> String {
+pub fn mantissa_tostr(mantissa: [i16; 10], fill: bool) -> String {
     let mut cur = "".to_string();
     
     let mut started = false;
@@ -53,7 +50,13 @@ fn to_digits_str(mantissa: [i16; 10]) -> String {
 
         started = true;
     }
-    cur
+
+    if fill {
+        format!("{:0<40}", cur)
+    } else {
+        cur
+    }
+    
 }
 
 pub fn bigfloat_scientific(v: &BigFloat) -> String {
@@ -63,9 +66,9 @@ pub fn bigfloat_scientific(v: &BigFloat) -> String {
 
     let (mantissa, _dp, sign, _exp) = v.to_raw_parts().unwrap();
 
-    let cur = to_digits_str(mantissa);
+    let cur = mantissa_tostr(mantissa, false);
 
-    let exp_adjusted = v.abs().log10().floor().to_i128().unwrap();
+    let exp_adjusted = get_exponent(v);
 
     let ret = cur[..1].to_string() + "." + &cur[1..] + &format!("\\times10^{{{exp_adjusted}}}");
 
@@ -87,15 +90,12 @@ pub fn bigfloat_to_str(v: &BigFloat, decimal_digits: usize) -> String {
 
     let (mantissa, _dp, sign, _exp) = v.to_raw_parts().unwrap();
     
-    let mut cur = to_digits_str(mantissa);
+    let mut cur = mantissa_tostr(mantissa, false);
 
-    let exp_adjusted = v.abs().log10().floor().to_i128().unwrap();
-
-    console_log!("{cur} {exp_adjusted}");
+    let exp_adjusted = get_exponent(v);
 
     // case 1: we need to add a decimal point at the start
     let ret = if exp_adjusted < 0 {
-        console_log!("case 1");
         let l = cur.len().min(decimal_digits - (-exp_adjusted as usize) + 1);
         if l == 0 {
             "0".to_string()
@@ -111,7 +111,6 @@ pub fn bigfloat_to_str(v: &BigFloat, decimal_digits: usize) -> String {
     }
     // case 2: decimal point is added in between
     else if (exp_adjusted as usize) < cur.len() - 1 {
-        console_log!("case 2");
         let idx = exp_adjusted as usize + 1;
         let first_part = &cur[..idx];
         let second_part = &cur[idx..];
@@ -128,13 +127,10 @@ pub fn bigfloat_to_str(v: &BigFloat, decimal_digits: usize) -> String {
     }
     // case 3: decimal point implies the number is exactly an integer
     else if (exp_adjusted as usize) == cur.len() - 1 {
-        console_log!("case 3");
         cur
     } else {
-        console_log!("case 4");
         // case 4: need to add zeros
-        let add = exp_adjusted - (cur.len() as i128) + 1;
-        console_log!("add: {add}");
+        let add = exp_adjusted - (cur.len() as i64) + 1;
         for _ in 0..add {
             cur += "0"
         }

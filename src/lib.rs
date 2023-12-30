@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use evaluation::eval::EvalError;
 use parsing::parser::ParseError;
-use util::bigfloat2str::bigfloat_auto_str;
+use util::bigfloat2str::{bigfloat_auto_str, mantissa_tostr, get_exponent};
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
@@ -121,8 +121,8 @@ pub struct EvalWrap {
     latex: String,
     is_nan: bool,
     is_inf: bool,
-    mantissa: [i16; 10],
-    exp: i8,
+    mantissa: String,
+    exp: i64,
     sign: i8,
     text: String,
     error: ErrorInfo
@@ -132,7 +132,7 @@ pub struct EvalWrap {
 pub fn eval_expr(inp: &str) -> JsValue {
     set_panic_hook();
 
-    let zeros = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let zeros = "".to_string();
     
     let mut tokens = match parsing::lexer::lex(inp) {
         Ok(tks) => tks,
@@ -185,15 +185,16 @@ pub fn eval_expr(inp: &str) -> JsValue {
     match parsed.eval(&HashMap::new()) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
-                Some((mantissa, _dp, sign, exp)) => {
+                Some((mantissa, _dp, sign, _exp)) => {
+                    
                     EvalWrap {
                         parse_success: true,
                         eval_success: true,
                         latex: parsed.to_tex(0, 0).0,
                         is_nan: false,
                         is_inf: false,
-                        mantissa: mantissa,
-                        exp: exp,
+                        mantissa: mantissa_tostr(mantissa, true),
+                        exp: get_exponent(&val),
                         sign: sign,
                         text: bigfloat_auto_str(&val),
                         error: empty_error
@@ -221,8 +222,8 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             is_nan: false,
                             is_inf: true,
                             mantissa: zeros,
-                            exp: val.get_sign(),
-                            sign: 0,
+                            exp: 0,
+                            sign: val.get_sign(),
                             text: val.to_string(),
                             error: empty_error
                         }
