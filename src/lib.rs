@@ -1,19 +1,19 @@
 mod utils;
 
 pub mod ast;
+pub mod evaluation;
 pub mod parsing;
 pub mod util;
-pub mod evaluation;
 
 use std::collections::HashMap;
 
 use evaluation::eval::EvalError;
 use parsing::parser::ParseError;
-use util::bigfloat2str::{bigfloat_auto_str, mantissa_tostr, get_exponent};
+use util::bigfloat2str::{bigfloat_auto_str, get_exponent, mantissa_tostr};
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -50,44 +50,41 @@ macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct ErrorInfo {
     pub msg: String,
     pub start: usize,
-    pub len: usize
+    pub len: usize,
 }
 
 // message, spaces, caretes
 fn parse_error_to_info(err: ParseError, inp_len: usize) -> ErrorInfo {
     let (msg, start, len) = match err {
-        ParseError::UnexpectedToken(pos) => (
-            "unexpected token", pos.0, pos.1 - pos.0
-        ),
-        ParseError::BraceNotClosed(pos) => (
-            "unclosed parentheses", pos.0, pos.1 - pos.0
-        ),
-        ParseError::UnexpectedEnd => (
-            "unexpected end", inp_len - 1, 1
-        ),
-        ParseError::WrongNumArgs(pos) => (
-            "wrong number of arguments", pos.0, pos.1 - pos.0
-        ),
+        ParseError::UnexpectedToken(pos) => ("unexpected token", pos.0, pos.1 - pos.0),
+        ParseError::BraceNotClosed(pos) => ("unclosed parentheses", pos.0, pos.1 - pos.0),
+        ParseError::UnexpectedEnd => ("unexpected end", inp_len - 1, 1),
+        ParseError::WrongNumArgs(pos) => ("wrong number of arguments", pos.0, pos.1 - pos.0),
     };
 
     ErrorInfo {
-        msg: msg.to_string(), start, len
+        msg: msg.to_string(),
+        start,
+        len,
     }
 }
 
 fn eval_error_to_info(err: EvalError) -> ErrorInfo {
     let (msg, pos) = match err {
         EvalError::ModByZero(pos) => ("mod by zero".to_string(), pos),
-        EvalError::VariableNotFound(var_name, pos) => (format!("variable {var_name} not found"), pos)
+        EvalError::VariableNotFound(var_name, pos) => {
+            (format!("variable {var_name} not found"), pos)
+        }
     };
 
     ErrorInfo {
-        msg: msg, start: pos.0, len: pos.1 - pos.0
+        msg: msg,
+        start: pos.0,
+        len: pos.1 - pos.0,
     }
 }
 
@@ -96,7 +93,7 @@ pub fn print_error(inp: &str, err: ParseError) {
 
     let spaces = format!("{: <1$}", "", info.start);
     let carets = format!("{:^<1$}", "", info.len);
-    
+
     let out = format!("{}\n{}{}\n{}", inp, spaces, carets, info.msg);
 
     console_log!("{}", out);
@@ -107,12 +104,11 @@ pub fn print_eval_err(inp: &str, err: EvalError) {
 
     let spaces = format!("{: <1$}", "", info.start);
     let carets = format!("{:^<1$}", "", info.len);
-    
+
     let out = format!("{}\n{}{}\n{}", inp, spaces, carets, info.msg);
 
     console_log!("{}", out);
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct EvalWrap {
@@ -125,7 +121,7 @@ pub struct EvalWrap {
     exp: i64,
     sign: i8,
     text: String,
-    error: ErrorInfo
+    error: ErrorInfo,
 }
 
 #[wasm_bindgen]
@@ -133,14 +129,14 @@ pub fn eval_expr(inp: &str) -> JsValue {
     set_panic_hook();
 
     let zeros = "".to_string();
-    
+
     let mut tokens = match parsing::lexer::lex(inp) {
         Ok(tks) => tks,
         Err(pos) => {
             let err = ErrorInfo {
                 msg: "unexpected token".to_string(),
                 start: pos,
-                len: 1
+                len: 1,
             };
 
             let res = EvalWrap {
@@ -153,7 +149,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 exp: 0,
                 sign: 0,
                 text: "".to_string(),
-                error: err
+                error: err,
             };
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }
@@ -174,32 +170,33 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 exp: 0,
                 sign: 0,
                 text: "".to_string(),
-                error: err
+                error: err,
             };
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }
     };
 
-    let empty_error = ErrorInfo { msg: "".to_string(), start: 0, len: 0 };
+    let empty_error = ErrorInfo {
+        msg: "".to_string(),
+        start: 0,
+        len: 0,
+    };
 
     match parsed.eval(&HashMap::new()) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
-                Some((mantissa, _dp, sign, _exp)) => {
-                    
-                    EvalWrap {
-                        parse_success: true,
-                        eval_success: true,
-                        latex: parsed.to_tex(0, 0).0,
-                        is_nan: false,
-                        is_inf: false,
-                        mantissa: mantissa_tostr(mantissa, true),
-                        exp: get_exponent(&val),
-                        sign: sign,
-                        text: bigfloat_auto_str(&val),
-                        error: empty_error
-                    }
-                }
+                Some((mantissa, _dp, sign, _exp)) => EvalWrap {
+                    parse_success: true,
+                    eval_success: true,
+                    latex: parsed.to_tex(0, 0).0,
+                    is_nan: false,
+                    is_inf: false,
+                    mantissa: mantissa_tostr(mantissa, true),
+                    exp: get_exponent(&val),
+                    sign: sign,
+                    text: bigfloat_auto_str(&val),
+                    error: empty_error,
+                },
                 None => {
                     if val.is_nan() {
                         EvalWrap {
@@ -212,7 +209,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             exp: 0,
                             sign: 0,
                             text: val.to_string(),
-                            error: empty_error
+                            error: empty_error,
                         }
                     } else if val.is_inf() {
                         EvalWrap {
@@ -225,14 +222,13 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             exp: 0,
                             sign: val.get_sign(),
                             text: val.to_string(),
-                            error: empty_error
+                            error: empty_error,
                         }
                     } else {
                         unreachable!()
                     }
                 }
             };
-
 
             serde_wasm_bindgen::to_value(&res).unwrap()
         }
@@ -249,7 +245,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 exp: 0,
                 sign: 0,
                 text: "".to_string(),
-                error: err
+                error: err,
             };
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }

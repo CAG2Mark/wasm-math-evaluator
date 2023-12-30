@@ -2,11 +2,11 @@ use std::fmt;
 
 use num_bigfloat::BigFloat;
 
+use crate::ast::tokens::MathConst;
 use crate::ast::tokens::Operator;
 use crate::ast::tokens::OtherFn;
 use crate::ast::tokens::Position;
 use crate::ast::tokens::PrefixFn;
-use crate::ast::tokens::MathConst;
 
 pub enum Expr {
     InfixOp(Operator, Box<ExprPos>, Box<ExprPos>),
@@ -41,7 +41,11 @@ impl fmt::Display for Expr {
             Expr::PostfixOp(op, val) => write!(f, "({}{})", val, op),
             Expr::Variable(c) => write!(f, "{}", c),
             Expr::OtherFunction(f_, params) => {
-                let ps = params.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
+                let ps = params
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 write!(f, "{}({})", f_, ps)
             }
             // Expr::ImaginaryConst => write!(f, "i"),

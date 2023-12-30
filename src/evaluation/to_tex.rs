@@ -106,11 +106,9 @@ impl Expr {
 
                         // if left side is fraction then we should bracket
                         match lhs.expr {
-                            Expr::InfixOp(Operator::Div, _, _) => (
-                                format!("\\left({}\\right)^{{{}}}", left.0, right.0),
-                                0,
-                                0,
-                            ),
+                            Expr::InfixOp(Operator::Div, _, _) => {
+                                (format!("\\left({}\\right)^{{{}}}", left.0, right.0), 0, 0)
+                            }
                             _ => (format!("{}^{{{}}}", left.0, right.0), 2, 2),
                         }
                     }

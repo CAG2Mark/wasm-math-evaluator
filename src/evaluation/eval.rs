@@ -1,10 +1,16 @@
-use std::collections::HashMap;
 use num_bigfloat::BigFloat;
+use std::collections::HashMap;
 
-use crate::{ast::{
-    tokens::{Operator, Position, PrefixFn, MathConst, OtherFn},
-    tree::{Expr, ExprPos},
-}, util::{gamma, combinatorics::{ncr, npr}}};
+use crate::{
+    ast::{
+        tokens::{MathConst, Operator, OtherFn, Position, PrefixFn},
+        tree::{Expr, ExprPos},
+    },
+    util::{
+        combinatorics::{ncr, npr},
+        gamma,
+    },
+};
 
 type VariableMap = HashMap<char, BigFloat>;
 
@@ -16,7 +22,7 @@ impl ExprPos {
 
 pub enum EvalError {
     ModByZero(Position),
-    VariableNotFound(String, Position)
+    VariableNotFound(String, Position),
 }
 
 impl Expr {
@@ -35,7 +41,7 @@ impl Expr {
                     Operator::Div => lhs_e / rhs_e,
                     Operator::Mod => lhs_e % rhs_e,
                     Operator::Factorial => unreachable!(),
-                    Operator::Pow => lhs_e.pow(&rhs_e)
+                    Operator::Pow => lhs_e.pow(&rhs_e),
                 };
 
                 Ok(ret)
@@ -59,16 +65,18 @@ impl Expr {
                     PrefixFn::Exp => evaled.exp(),
                     PrefixFn::Ln => evaled.ln(),
                     PrefixFn::Sqrt => evaled.sqrt(),
-                    PrefixFn::Sgn => if evaled > BigFloat::from(0) {
-                        BigFloat::from(1)
-                    } else if evaled.is_zero() {
-                        BigFloat::from(0)
-                    } else {
-                        BigFloat::from(-1)
+                    PrefixFn::Sgn => {
+                        if evaled > BigFloat::from(0) {
+                            BigFloat::from(1)
+                        } else if evaled.is_zero() {
+                            BigFloat::from(0)
+                        } else {
+                            BigFloat::from(-1)
+                        }
                     }
                     PrefixFn::Floor => evaled.floor(),
                     PrefixFn::Ceil => evaled.ceil(),
-                    PrefixFn::Abs => evaled.abs()
+                    PrefixFn::Abs => evaled.abs(),
                 };
 
                 Ok(ret)
@@ -85,7 +93,7 @@ impl Expr {
             }
             Expr::PostfixOp(op, expr) => {
                 let evaled = expr.eval(vars)?;
-                
+
                 match op {
                     Operator::Factorial => Ok(gamma::factorial(&evaled)),
                     _ => unreachable!(),
@@ -100,7 +108,7 @@ impl Expr {
                     let n = params[0].eval(vars)?;
                     let r = params[1].eval(vars)?;
                     Ok(ncr(&n, &r))
-                },
+                }
                 OtherFn::Npr => {
                     let n = params[0].eval(vars)?;
                     let r = params[1].eval(vars)?;
@@ -110,7 +118,9 @@ impl Expr {
             Expr::Const(c) => match c {
                 MathConst::PI => Ok(num_bigfloat::PI),
                 MathConst::E => Ok(num_bigfloat::E),
-                MathConst::PHI => Ok((num_bigfloat::ONE + BigFloat::from(5).sqrt()) / num_bigfloat::TWO),
+                MathConst::PHI => {
+                    Ok((num_bigfloat::ONE + BigFloat::from(5).sqrt()) / num_bigfloat::TWO)
+                }
             },
             Expr::Nested(e) => e.eval(vars),
         }

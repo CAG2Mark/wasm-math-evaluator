@@ -35,7 +35,7 @@ pub fn bigfloat_auto_str(v: &BigFloat) -> String {
 
 pub fn mantissa_tostr(mantissa: [i16; 10], fill: bool) -> String {
     let mut cur = "".to_string();
-    
+
     let mut started = false;
     for x in mantissa.iter().rev() {
         if *x == 0 {
@@ -56,7 +56,6 @@ pub fn mantissa_tostr(mantissa: [i16; 10], fill: bool) -> String {
     } else {
         cur
     }
-    
 }
 
 pub fn bigfloat_scientific(v: &BigFloat) -> String {
@@ -89,7 +88,7 @@ pub fn bigfloat_to_str(v: &BigFloat, decimal_digits: usize) -> String {
     }
 
     let (mantissa, _dp, sign, _exp) = v.to_raw_parts().unwrap();
-    
+
     let mut cur = mantissa_tostr(mantissa, false);
 
     let exp_adjusted = get_exponent(v);

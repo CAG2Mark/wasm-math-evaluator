@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 
 use crate::ast::tokens::MathConst;
+use crate::ast::tokens::Operator;
 use crate::ast::tokens::OtherFn;
 use crate::ast::tokens::PrefixFn;
-use crate::ast::tokens::Operator;
 use crate::ast::tokens::Token;
 use crate::ast::tokens::TokenPos;
 
@@ -33,10 +33,8 @@ const PREFIX_FUNCTIONS: &'static [(&'static str, PrefixFn)] = &[
     ("abs", PrefixFn::Abs),
 ];
 
-const OTHER_FUNCTIONS: &'static [(&'static str, OtherFn)] = &[
-    ("nCr", OtherFn::Ncr),
-    ("nPr", OtherFn::Npr),
-];
+const OTHER_FUNCTIONS: &'static [(&'static str, OtherFn)] =
+    &[("nCr", OtherFn::Ncr), ("nPr", OtherFn::Npr)];
 
 const OPS: &'static [(&'static str, Operator)] = &[
     ("+", Operator::Plus),
@@ -54,9 +52,7 @@ const MATH_CONSTS: &'static [(&'static str, MathConst)] = &[
     ("phi", MathConst::PHI),
 ];
 
-const WHITESPACE: &'static [char] = &[
-    ' ', '\t', '\n'
-];
+const WHITESPACE: &'static [char] = &[' ', '\t', '\n'];
 
 fn try_lex_prefix_fn(input: &str) -> Option<(Token, usize)> {
     for (s, f) in PREFIX_FUNCTIONS {
@@ -84,7 +80,6 @@ fn try_lex_other_fn(input: &str) -> Option<(Token, usize)> {
     }
     None
 }
-
 
 fn try_lex_op(input: &str) -> Option<(Token, usize)> {
     for (s, o) in OPS {
@@ -132,8 +127,7 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
 
     // while the next char exists, and it is a digit, or it is a decimal point/comma if we have not seen one already
     while cur.is_some()
-        && (cur.unwrap().is_numeric()
-            || (!seen_dot && (is_decimal_point(cur.unwrap()))))
+        && (cur.unwrap().is_numeric() || (!seen_dot && (is_decimal_point(cur.unwrap()))))
     {
         len += 1;
         if seen_dot {
@@ -146,18 +140,18 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
             cur = it.next();
             len += 1;
             decimal_len += 1;
-            
+
             if cur.is_none() || !cur.unwrap().is_numeric() {
                 len -= 2;
                 break;
             }
         }
-        
+
         cur = it.next();
     }
 
     if len == 0 {
-        return None
+        return None;
     }
 
     let sliced = &input[0..len].replace(",", ".");
@@ -193,15 +187,13 @@ fn try_lex_whitespace(input: &str) -> Option<(Token, usize)> {
     let mut len = 0;
 
     // while the next char exists, and it is a digit, or it is a decimal point/comma if we have not seen one already
-    while cur.is_some()
-        && (WHITESPACE.contains(&cur.unwrap()))
-    {
+    while cur.is_some() && (WHITESPACE.contains(&cur.unwrap())) {
         len += 1;
         cur = it.next();
     }
 
     if len == 0 {
-        return None
+        return None;
     }
 
     Some((Token::Whitespace, len))
@@ -237,14 +229,17 @@ pub fn lex(input: &str) -> Result<VecDeque<TokenPos>, Position> {
             match f(slice) {
                 Some((tk, len)) => {
                     if !matches!(tk, Token::Whitespace) {
-                        ret.push_back(TokenPos { tk, pos: (pos, pos + len) });
+                        ret.push_back(TokenPos {
+                            tk,
+                            pos: (pos, pos + len),
+                        });
                     }
                     pos += len;
                     progress = true;
                     break;
-                },
+                }
                 None => continue,
-            } 
+            }
         }
     }
 

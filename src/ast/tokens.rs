@@ -1,5 +1,5 @@
-use std::fmt;
 use num_bigfloat::BigFloat;
+use std::fmt;
 
 #[derive(Copy, Clone)]
 pub enum Operator {
@@ -9,7 +9,7 @@ pub enum Operator {
     Div,
     Mod,
     Factorial,
-    Pow
+    Pow,
 }
 
 #[derive(Copy, Clone)]
@@ -32,20 +32,20 @@ pub enum PrefixFn {
     Sgn,
     Floor,
     Ceil,
-    Abs
+    Abs,
 }
 
 #[derive(Copy, Clone)]
 pub enum MathConst {
     PI,
     E,
-    PHI
+    PHI,
 }
 
 #[derive(Copy, Clone)]
 pub enum OtherFn {
     Ncr,
-    Npr
+    Npr,
 }
 
 #[derive(Copy, Clone)]
@@ -60,7 +60,7 @@ pub enum Token {
     CloseBrace,
     Comma,
     // ImaginaryConst,
-    Whitespace
+    Whitespace,
 }
 
 pub(crate) type Position = (usize, usize);
@@ -68,7 +68,7 @@ pub(crate) type Position = (usize, usize);
 #[derive(Copy, Clone)]
 pub struct TokenPos {
     pub tk: Token,
-    pub pos: Position
+    pub pos: Position,
 }
 
 impl fmt::Display for Operator {
