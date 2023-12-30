@@ -213,7 +213,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             mantissa: zeros,
                             exp: 0,
                             sign: 0,
-                            text: val.to_string(),
+                            text: bigfloat_auto_str(&val),
                             error: empty_error,
                         }
                     } else if val.is_inf() {
@@ -227,7 +227,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             mantissa: zeros,
                             exp: 0,
                             sign: val.get_sign(),
-                            text: val.to_string(),
+                            text: bigfloat_auto_str(&val),
                             error: empty_error,
                         }
                     } else {

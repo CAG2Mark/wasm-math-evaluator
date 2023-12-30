@@ -41,8 +41,16 @@ pub fn get_decimal_places(v: &BigFloat) -> usize {
 
 // auto determine decimal places
 pub fn bigfloat_auto_str(v: &BigFloat) -> String {
-    if v.is_nan() || v.is_inf() {
+    if v.is_nan() {
         return v.to_string();
+    }
+
+    if v.is_inf_pos() {
+        return "+\\infty".to_string();
+    }
+
+    if v.is_inf_neg() {
+        return "-\\infty".to_string();
     }
 
     if v.abs() < num_bigfloat::EPSILON {
@@ -86,9 +94,18 @@ pub fn mantissa_tostr(mantissa: [i16; 10], fill: bool) -> String {
 }
 
 pub fn bigfloat_scientific(v: &BigFloat) -> String {
-    if v.is_nan() || v.is_inf() {
+    if v.is_nan() {
         return v.to_string();
     }
+
+    if v.is_inf_pos() {
+        return "+\\infty".to_string();
+    }
+
+    if v.is_inf_neg() {
+        return "-\\infty".to_string();
+    }
+
 
     if v.abs() < num_bigfloat::EPSILON {
         return "0".to_string();
@@ -118,9 +135,18 @@ pub fn bigfloat_scientific(v: &BigFloat) -> String {
 }
 
 pub fn bigfloat_to_str(v: &BigFloat, decimal_digits: usize) -> String {
-    if v.is_nan() || v.is_inf() {
+    if v.is_nan() {
         return v.to_string();
     }
+
+    if v.is_inf_pos() {
+        return "+\\infty".to_string();
+    }
+
+    if v.is_inf_neg() {
+        return "-\\infty".to_string();
+    }
+
 
     if v.abs() < num_bigfloat::EPSILON {
         return "0".to_string();
