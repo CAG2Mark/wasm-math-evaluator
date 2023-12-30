@@ -1,3 +1,3 @@
 pub mod gamma;
-pub mod bigfloat2str;
+pub mod bigfloat_utils;
 pub mod combinatorics;

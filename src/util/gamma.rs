@@ -1,5 +1,7 @@
 use num_bigfloat::BigFloat;
 
+use super::bigfloat_utils::try_to_int;
+
 // Computed myself.
 // (Using Sage if you're curious)
 /*
@@ -22,6 +24,8 @@ use num_bigfloat::BigFloat;
 
 // Usually accurate up to 15-20 decimal places.
 // Unused, Spouge's approximation is way better.
+
+/*
 pub fn gamma(z: BigFloat) -> BigFloat {
     // exact factorial calculation
     if z.frac().abs() < num_bigfloat::EPSILON {
@@ -87,6 +91,7 @@ pub fn gamma(z: BigFloat) -> BigFloat {
     let exp_t = neg.exp();
     x * sqrt_2pi * t_pow * exp_t
 }
+*/
 
 pub fn spouge_coeff(a: u8, k: u8) -> BigFloat {
     if k == 0 {
@@ -123,46 +128,51 @@ pub fn spouge_coeff(a: u8, k: u8) -> BigFloat {
 pub fn gamma_spouge(z: &BigFloat) -> BigFloat {
     let a: u8 = 34;
 
-    // exact factorial calculation
-    if z.frac().abs() < num_bigfloat::EPSILON {
-        let mut x = *z - num_bigfloat::ONE;
+    match try_to_int(z) {
+        Some(n) => {
+            // exact factorial calculation
+            if n < 0 {
+                return f64::NAN.into();
+            }
+            if n == 0 {
+                return num_bigfloat::ONE;
+            }
+            let mut m: u128 = n as u128 - 1;
 
-        let mut ans = num_bigfloat::ONE;
+            let mut ans: u128 = 1;
 
-        if x < num_bigfloat::ZERO {
-            return f64::NAN.into();
+            while m > 0 {
+                ans *= m;
+                m -= 1
+            }
+
+            return BigFloat::from(ans);
         }
+        None => {
+            // Reflection formula
+            if z < &BigFloat::from(0.5) {
+                let t = num_bigfloat::ONE - z;
+                return num_bigfloat::PI / ((num_bigfloat::PI * z).sin() * gamma_spouge(&t));
+            }
 
-        while x.abs() >= num_bigfloat::EPSILON {
-            ans *= x - x.frac();
-            x -= num_bigfloat::ONE;
+            let mut x = spouge_coeff(a, 0);
+
+            // console_log!("{}", z_bigg);
+            let w = *z - BigFloat::from(1);
+
+            for i in 1..a {
+                x += spouge_coeff(a, i) / (w + BigFloat::from(i))
+            }
+
+            let t = w + BigFloat::from(a);
+            let exponent = w + BigFloat::from(0.5);
+            let t_pow = t.pow(&exponent);
+            let neg = -t;
+            let exp_t = neg.exp();
+
+            x * t_pow * exp_t
         }
-
-        return ans;
     }
-
-    // Reflection formula
-    if z < &BigFloat::from(0.5) {
-        let t = num_bigfloat::ONE - z;
-        return num_bigfloat::PI / ((num_bigfloat::PI * z).sin() * gamma(t));
-    }
-
-    let mut x = spouge_coeff(a, 0);
-
-    // console_log!("{}", z_bigg);
-    let w = *z - BigFloat::from(1);
-
-    for i in 1..a {
-        x += spouge_coeff(a, i) / (w + BigFloat::from(i))
-    }
-
-    let t = w + BigFloat::from(a);
-    let exponent = w + BigFloat::from(0.5);
-    let t_pow = t.pow(&exponent);
-    let neg = -t;
-    let exp_t = neg.exp();
-
-    x * t_pow * exp_t
 }
 
 pub fn factorial(z: &BigFloat) -> BigFloat {

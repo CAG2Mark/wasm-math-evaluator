@@ -4,7 +4,8 @@ use crate::ast::tokens::OtherFn;
 use crate::ast::tokens::PrefixFn;
 use crate::ast::tree::Expr;
 use crate::ast::tree::ExprPos;
-use crate::util::bigfloat2str::bigfloat_to_str;
+use crate::util::bigfloat_utils::bigfloat_to_str;
+use crate::util::bigfloat_utils::try_to_int;
 
 impl ExprPos {
     pub fn to_tex(&self, lp: u16, rp: u16) -> (String, u8, u8) {
@@ -196,10 +197,9 @@ impl Expr {
                 }
             },
             Expr::Number(n, d) => {
-                let ret = if n.frac().abs() < num_bigfloat::EPSILON {
-                    bigfloat_to_str(n, *d)
-                } else {
-                    bigfloat_to_str(n, *d)
+                let ret = match try_to_int(n) {
+                    Some(n) => n.to_string(),
+                    None => bigfloat_to_str(n, *d),
                 };
 
                 (ret, 2, 1)

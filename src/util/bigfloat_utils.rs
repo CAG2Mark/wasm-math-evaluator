@@ -4,10 +4,33 @@ pub fn get_exponent(v: &BigFloat) -> i64 {
     v.abs().log10().floor().to_i64().unwrap()
 }
 
+pub fn try_to_int(v: &BigFloat) -> Option<i128> {
+    if (*v - &v.int()).abs() < num_bigfloat::EPSILON {
+        v.int().to_i128()
+    } else {
+        None
+    }
+}
+
+pub fn get_decimal_places(v: &BigFloat) -> usize {
+    let mut u = *v;
+    let ten = BigFloat::from(10);
+    let mut d = 0;
+    while u.abs() < num_bigfloat::MAX && try_to_int(&u).is_none() {
+        d += 1;
+        u *= ten;
+    }
+    return d
+}
+
 // auto determine decimal places
 pub fn bigfloat_auto_str(v: &BigFloat) -> String {
     if v.is_nan() || v.is_inf() {
         return v.to_string();
+    }
+
+    if v.is_zero() {
+        return "0".to_string();
     }
 
     if v.abs() < num_bigfloat::EPSILON {
@@ -22,15 +45,7 @@ pub fn bigfloat_auto_str(v: &BigFloat) -> String {
         return bigfloat_scientific(v);
     }
 
-    let mut u = *v;
-    let mut d = 0;
-    let ten = BigFloat::from(10);
-
-    while u.abs() < num_bigfloat::MAX && u.frac().abs() >= num_bigfloat::EPSILON {
-        d += 1;
-        u *= ten;
-    }
-    return bigfloat_to_str(v, d);
+    return bigfloat_to_str(v, get_decimal_places(&v));
 }
 
 pub fn mantissa_tostr(mantissa: [i16; 10], fill: bool) -> String {
@@ -61,6 +76,10 @@ pub fn mantissa_tostr(mantissa: [i16; 10], fill: bool) -> String {
 pub fn bigfloat_scientific(v: &BigFloat) -> String {
     if v.is_nan() || v.is_inf() {
         return v.to_string();
+    }
+
+    if v.is_zero() {
+        return "0".to_string();
     }
 
     let (mantissa, _dp, sign, _exp) = v.to_raw_parts().unwrap();

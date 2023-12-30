@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use evaluation::eval::EvalError;
 use parsing::parser::ParseError;
-use util::bigfloat2str::{bigfloat_auto_str, get_exponent, mantissa_tostr};
+use util::bigfloat_utils::{bigfloat_auto_str, get_exponent, mantissa_tostr, get_decimal_places};
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
@@ -120,6 +120,7 @@ pub struct EvalWrap {
     mantissa: String,
     exp: i64,
     sign: i8,
+    is_exact: bool,
     text: String,
     error: ErrorInfo,
 }
@@ -144,7 +145,8 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 eval_success: false,
                 latex: "".to_string(),
                 is_nan: false,
-                is_inf: true,
+                is_inf: false,
+                is_exact: false,
                 mantissa: zeros,
                 exp: 0,
                 sign: 0,
@@ -165,7 +167,8 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 eval_success: false,
                 latex: "".to_string(),
                 is_nan: false,
-                is_inf: true,
+                is_inf: false,
+                is_exact: false,
                 mantissa: zeros,
                 exp: 0,
                 sign: 0,
@@ -191,6 +194,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                     latex: parsed.to_tex(0, 0).0,
                     is_nan: false,
                     is_inf: false,
+                    is_exact: val.is_zero() || (get_exponent(&val) + get_decimal_places(&val) as i64) < 39,
                     mantissa: mantissa_tostr(mantissa, true),
                     exp: get_exponent(&val),
                     sign: sign,
@@ -205,6 +209,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             latex: parsed.to_tex(0, 0).0,
                             is_nan: true,
                             is_inf: false,
+                            is_exact: false,
                             mantissa: zeros,
                             exp: 0,
                             sign: 0,
@@ -218,6 +223,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             latex: parsed.to_tex(0, 0).0,
                             is_nan: false,
                             is_inf: true,
+                            is_exact: false,
                             mantissa: zeros,
                             exp: 0,
                             sign: val.get_sign(),
@@ -241,6 +247,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 latex: parsed.to_tex(0, 0).0,
                 is_nan: false,
                 is_inf: true,
+                is_exact: false,
                 mantissa: zeros,
                 exp: 0,
                 sign: 0,

@@ -1,6 +1,6 @@
-use num_bigfloat::{BigFloat, EPSILON};
+use num_bigfloat::BigFloat;
 
-use super::gamma::factorial;
+use super::{bigfloat_utils::try_to_int, gamma::factorial};
 
 fn gcd(a: i128, b: i128) -> i128 {
     let mut p = a;
@@ -26,8 +26,10 @@ fn ncr_int_int(n: i128, r: i128) -> BigFloat {
     let mut denom: i128 = 1;
 
     for i in 0..r {
-        numer *= n - i;
-        denom *= r - i;
+        let g = gcd(n - i, r - i);
+
+        numer *= (n - i) / g;
+        denom *= (r - i) / g;
         let d = gcd(numer, denom);
         numer /= d;
         denom /= d
@@ -37,38 +39,30 @@ fn ncr_int_int(n: i128, r: i128) -> BigFloat {
 }
 
 fn ncr_int(n: &BigFloat, r: i128) -> BigFloat {
-    if n.frac().abs() < EPSILON {
-        let n_int = match n.to_i128() {
-            Some(v) => v,
-            None => return num_bigfloat::NAN,
-        };
-        return ncr_int_int(n_int, r);
-    };
-
-    let mut cur = num_bigfloat::ONE;
-
-    for i in 0..r {
-        cur *= *n - BigFloat::from(i);
-        cur /= BigFloat::from(r - i);
-    }
-
-    cur
-}
-
-pub fn ncr(n: &BigFloat, r: &BigFloat) -> BigFloat {
-    if r < &num_bigfloat::ZERO {
+    if r < 0 {
         return num_bigfloat::ZERO;
     }
 
-    if r.frac().abs() < EPSILON {
-        let r_int = match r.to_i128() {
-            Some(v) => v,
-            None => return num_bigfloat::NAN,
-        };
-        return ncr_int(n, r_int);
-    }
+    match try_to_int(&n) {
+        Some(n) => ncr_int_int(n, r),
+        None => {
+            let mut cur = num_bigfloat::ONE;
 
-    factorial(n) / (factorial(&(*n - r)) * factorial(r))
+            for i in 0..r {
+                cur *= *n - BigFloat::from(i);
+                cur /= BigFloat::from(r - i);
+            }
+
+            cur
+        }
+    }
+}
+
+pub fn ncr(n: &BigFloat, r: &BigFloat) -> BigFloat {
+    match try_to_int(&r) {
+        Some(r) => ncr_int(n, r),
+        None => factorial(n) / (factorial(&(*n - r)) * factorial(r)),
+    }
 }
 
 fn npr_int_int(n: i128, r: i128) -> BigFloat {
@@ -103,30 +97,23 @@ fn npr_int_int(n: i128, r: i128) -> BigFloat {
 }
 
 fn npr_int(n: &BigFloat, r: i128) -> BigFloat {
-    if n.frac().abs() < EPSILON {
-        let n_int = match n.to_i128() {
-            Some(v) => v,
-            None => return num_bigfloat::NAN,
-        };
-        return npr_int_int(n_int, r);
-    };
+    match try_to_int(n) {
+        Some(n) => npr_int_int(n, r),
+        None => {
+            let mut cur = num_bigfloat::ONE;
 
-    let mut cur = num_bigfloat::ONE;
+            for i in 0..r {
+                cur *= *n - BigFloat::from(i);
+            }
 
-    for i in 0..r {
-        cur *= *n - BigFloat::from(i);
+            cur
+        }
     }
-
-    cur
 }
 
 pub fn npr(n: &BigFloat, r: &BigFloat) -> BigFloat {
-    if r.frac().abs() < EPSILON {
-        let r_int = match r.to_i128() {
-            Some(v) => v,
-            None => return num_bigfloat::NAN,
-        };
-        return npr_int(n, r_int);
+    match try_to_int(&r) {
+        Some(r) => npr_int(n, r),
+        None => factorial(n) / factorial(&(*n - r)),
     }
-    factorial(n) / factorial(&(*n - r))
 }
