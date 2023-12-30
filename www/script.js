@@ -7,14 +7,19 @@ let texout = document.getElementById("texout");
 let ans = document.getElementById("ans");
 
 textArea.addEventListener("keyup", (e) => {
-    let result = eval_expr(textArea.value);
+    let res = eval_expr(textArea.value);
 
-    console.log(result);
+    console.log(res);
 
-    if (result.EvalError) {
-        katex.render(result.EvalError.latex, texout);
-    } else if (result.EvalSuccess) {
-        katex.render(result.EvalSuccess.latex, texout);
-        katex.render(result.EvalSuccess.text, ans)
+    if (res.result == "EvalError") {
+        katex.render(res.latex, texout);
+    } else if (res.result == "EvalSuccess") {
+        katex.render(res.latex, texout);
+        katex.render(res.text, ans)
     }
 })
+
+function test() {
+    let res = eval_expr(textArea.value);
+    console.log(res);
+}

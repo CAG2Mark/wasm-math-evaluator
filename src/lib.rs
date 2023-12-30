@@ -58,6 +58,7 @@ pub struct ErrorInfo {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(tag = "result")]
 pub enum EvalResult {
     EvalSuccess {
         latex: String,
@@ -68,7 +69,9 @@ pub enum EvalResult {
         sign: i8,
         is_exact: bool,
         text: String,
-        error: ErrorInfo,
+    },
+    CheckSuccess {
+        latex: String,
     },
     EvalError {
         error: ErrorInfo,
@@ -84,7 +87,7 @@ fn parse_error_to_info(err: ParseError, inp_len: usize) -> ErrorInfo {
     let (msg, start, len) = match err {
         ParseError::UnexpectedToken(pos) => ("unexpected token", pos.0, pos.1 - pos.0),
         ParseError::BraceNotClosed(pos) => ("unclosed parentheses", pos.0, pos.1 - pos.0),
-        ParseError::UnexpectedEnd => ("unexpected end", inp_len - 1, 1),
+        ParseError::UnexpectedEnd => ("unexpected end", inp_len.max(1) - 1, 1),
         ParseError::WrongNumArgs(pos) => ("wrong number of arguments", pos.0, pos.1 - pos.0),
     };
 
@@ -133,6 +136,41 @@ pub fn print_eval_err(inp: &str, err: EvalError) {
 }
 
 #[wasm_bindgen]
+pub fn check_expr(inp: &str) -> JsValue {
+    set_panic_hook();
+
+    let mut tokens = match parsing::lexer::lex(inp) {
+        Ok(tks) => tks,
+        Err(pos) => {
+            let err = ErrorInfo {
+                msg: "unexpected token".to_string(),
+                start: pos,
+                len: 1,
+            };
+
+            let res = EvalResult::ParseError { error: err };
+
+            return serde_wasm_bindgen::to_value(&res).unwrap();
+        }
+    };
+
+    let parsed = match parsing::parser::parse(&mut tokens) {
+        Ok(expr) => expr,
+        Err(err) => {
+            let err = parse_error_to_info(err, inp.len());
+
+            let res = EvalResult::ParseError { error: err };
+
+            return serde_wasm_bindgen::to_value(&res).unwrap();
+        }
+    };
+
+    let res = EvalResult::CheckSuccess { latex: parsed.to_tex(0, 0).0 };
+
+    serde_wasm_bindgen::to_value(&res).unwrap()
+}
+
+#[wasm_bindgen]
 pub fn eval_expr(inp: &str) -> JsValue {
     set_panic_hook();
 
@@ -164,12 +202,6 @@ pub fn eval_expr(inp: &str) -> JsValue {
         }
     };
 
-    let empty_error = ErrorInfo {
-        msg: "".to_string(),
-        start: 0,
-        len: 0,
-    };
-
     match parsed.eval(&HashMap::new()) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
@@ -182,8 +214,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                     mantissa: mantissa_tostr(mantissa, true),
                     exp: if val.is_zero() { 0 } else { get_exponent(&val) },
                     sign: sign,
-                    text: bigfloat_auto_str(&val),
-                    error: empty_error,
+                    text: bigfloat_auto_str(&val)
                 },
                 None => {
                     if val.is_nan() {
@@ -196,7 +227,6 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             exp: 0,
                             sign: 0,
                             text: bigfloat_auto_str(&val),
-                            error: empty_error,
                         }
                     } else if val.is_inf() {
                         EvalResult::EvalSuccess {
@@ -208,7 +238,6 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             exp: 0,
                             sign: val.get_sign(),
                             text: bigfloat_auto_str(&val),
-                            error: empty_error,
                         }
                     } else {
                         unreachable!()
