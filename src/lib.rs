@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use evaluation::eval::EvalError;
 use parsing::parser::ParseError;
-use util::bigfloat_utils::{bigfloat_auto_str, get_exponent, mantissa_tostr, get_decimal_places};
+use util::bigfloat_utils::{bigfloat_auto_str, get_decimal_places, get_exponent, mantissa_tostr};
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
@@ -55,6 +55,28 @@ pub struct ErrorInfo {
     pub msg: String,
     pub start: usize,
     pub len: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum EvalResult {
+    EvalSuccess {
+        latex: String,
+        is_nan: bool,
+        is_inf: bool,
+        mantissa: String,
+        exp: i64,
+        sign: i8,
+        is_exact: bool,
+        text: String,
+        error: ErrorInfo,
+    },
+    EvalError {
+        error: ErrorInfo,
+        latex: String
+    },
+    ParseError {
+        error: ErrorInfo
+    }
 }
 
 // message, spaces, caretes
@@ -110,21 +132,6 @@ pub fn print_eval_err(inp: &str, err: EvalError) {
     console_log!("{}", out);
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct EvalWrap {
-    parse_success: bool,
-    eval_success: bool,
-    latex: String,
-    is_nan: bool,
-    is_inf: bool,
-    mantissa: String,
-    exp: i64,
-    sign: i8,
-    is_exact: bool,
-    text: String,
-    error: ErrorInfo,
-}
-
 #[wasm_bindgen]
 pub fn eval_expr(inp: &str) -> JsValue {
     set_panic_hook();
@@ -140,19 +147,8 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 len: 1,
             };
 
-            let res = EvalWrap {
-                parse_success: false,
-                eval_success: false,
-                latex: "".to_string(),
-                is_nan: false,
-                is_inf: false,
-                is_exact: false,
-                mantissa: zeros,
-                exp: 0,
-                sign: 0,
-                text: "".to_string(),
-                error: err,
-            };
+            let res = EvalResult::ParseError { error: err };
+
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }
     };
@@ -162,19 +158,8 @@ pub fn eval_expr(inp: &str) -> JsValue {
         Err(err) => {
             let err = parse_error_to_info(err, inp.len());
 
-            let res = EvalWrap {
-                parse_success: false,
-                eval_success: false,
-                latex: "".to_string(),
-                is_nan: false,
-                is_inf: false,
-                is_exact: false,
-                mantissa: zeros,
-                exp: 0,
-                sign: 0,
-                text: "".to_string(),
-                error: err,
-            };
+            let res = EvalResult::ParseError { error: err };
+
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }
     };
@@ -188,13 +173,12 @@ pub fn eval_expr(inp: &str) -> JsValue {
     match parsed.eval(&HashMap::new()) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
-                Some((mantissa, _dp, sign, _exp)) => EvalWrap {
-                    parse_success: true,
-                    eval_success: true,
+                Some((mantissa, _dp, sign, _exp)) => EvalResult::EvalSuccess {
                     latex: parsed.to_tex(0, 0).0,
                     is_nan: false,
                     is_inf: false,
-                    is_exact: val.is_zero() || (get_exponent(&val) + get_decimal_places(&val) as i64) < 39,
+                    is_exact: val.is_zero()
+                        || (get_exponent(&val) + get_decimal_places(&val) as i64) < 39,
                     mantissa: mantissa_tostr(mantissa, true),
                     exp: if val.is_zero() { 0 } else { get_exponent(&val) },
                     sign: sign,
@@ -203,9 +187,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 },
                 None => {
                     if val.is_nan() {
-                        EvalWrap {
-                            parse_success: true,
-                            eval_success: true,
+                        EvalResult::EvalSuccess {
                             latex: parsed.to_tex(0, 0).0,
                             is_nan: true,
                             is_inf: false,
@@ -217,9 +199,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             error: empty_error,
                         }
                     } else if val.is_inf() {
-                        EvalWrap {
-                            parse_success: true,
-                            eval_success: true,
+                        EvalResult::EvalSuccess {
                             latex: parsed.to_tex(0, 0).0,
                             is_nan: false,
                             is_inf: true,
@@ -241,19 +221,8 @@ pub fn eval_expr(inp: &str) -> JsValue {
         Err(err) => {
             let err = eval_error_to_info(err);
 
-            let res = EvalWrap {
-                parse_success: true,
-                eval_success: false,
-                latex: parsed.to_tex(0, 0).0,
-                is_nan: false,
-                is_inf: true,
-                is_exact: false,
-                mantissa: zeros,
-                exp: 0,
-                sign: 0,
-                text: "".to_string(),
-                error: err,
-            };
+            let res = EvalResult::EvalError { error: err, latex: parsed.to_tex(0, 0).0 };
+
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }
     }

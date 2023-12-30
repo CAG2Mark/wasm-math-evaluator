@@ -11,11 +11,10 @@ textArea.addEventListener("keyup", (e) => {
 
     console.log(result);
 
-    if (result.parse_success) {
-        katex.render(result.latex, texout);
-    }
-
-    if (result.eval_success) {
-        katex.render(result.text, ans)
+    if (result.EvalError) {
+        katex.render(result.EvalError.latex, texout);
+    } else if (result.EvalSuccess) {
+        katex.render(result.EvalSuccess.latex, texout);
+        katex.render(result.EvalSuccess.text, ans)
     }
 })
