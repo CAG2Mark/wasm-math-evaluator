@@ -5,6 +5,6 @@ Cargo.lock
 bin/
 pkg/
 wasm-pack.log
-www/*
+www/wasm-math-evaluator
 build.sh
 server.sh
