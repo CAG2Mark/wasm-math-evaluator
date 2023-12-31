@@ -129,7 +129,7 @@ pub fn gamma_spouge(z: &BigFloat) -> BigFloat {
     let a: u8 = 34;
 
     match try_to_int(z) {
-        Some(n) => {
+        Some(n) if n < 34 => {
             // exact factorial calculation
             if n < 0 {
                 return f64::NAN.into();
@@ -146,9 +146,21 @@ pub fn gamma_spouge(z: &BigFloat) -> BigFloat {
                 m -= 1
             }
 
-            return BigFloat::from(ans);
+            BigFloat::from(ans)
         }
-        None => {
+        Some(n) => {
+            let mut m: u128 = n as u128 - 1;
+
+            let mut ans = num_bigfloat::ONE;
+            
+            while m > 0 {
+                ans *= BigFloat::from(m);
+                m -= 1
+            }
+
+            ans - ans.frac()
+        }
+        _ => {
             // Reflection formula
             if z < &BigFloat::from(0.5) {
                 let t = num_bigfloat::ONE - z;

@@ -13,13 +13,13 @@ fn gcd(a: i128, b: i128) -> i128 {
     return p;
 }
 
-fn ncr_int_int(n: i128, r: i128) -> BigFloat {
+fn ncr_int_int(n: i128, r: i128) -> Option<BigFloat> {
     if n == 0 && r == 0 {
-        return num_bigfloat::ONE;
+        return Some(num_bigfloat::ONE);
     }
 
     if n < r && n >= 0 {
-        return num_bigfloat::ZERO;
+        return Some(num_bigfloat::ZERO);
     }
 
     let mut numer: i128 = 1;
@@ -28,14 +28,15 @@ fn ncr_int_int(n: i128, r: i128) -> BigFloat {
     for i in 0..r {
         let g = gcd(n - i, r - i);
 
-        numer *= (n - i) / g;
-        denom *= (r - i) / g;
+        numer = numer.checked_mul((n - i) / g)?;
+        denom = denom.checked_mul((r - i) / g)?;
+
         let d = gcd(numer, denom);
         numer /= d;
         denom /= d
     }
 
-    BigFloat::from(numer / denom)
+    Some(BigFloat::from(numer / denom))
 }
 
 fn ncr_int(n: &BigFloat, r: i128) -> BigFloat {
@@ -43,8 +44,12 @@ fn ncr_int(n: &BigFloat, r: i128) -> BigFloat {
         return num_bigfloat::ZERO;
     }
 
-    match try_to_int(&n) {
-        Some(n) => ncr_int_int(n, r),
+    fn try_int_int(n: &BigFloat, r: i128) -> Option<BigFloat> {
+        ncr_int_int(try_to_int(&n)?, r)
+    }
+
+    match try_int_int(&n, r) {
+        Some(ans) => ans,
         None => {
             let mut cur = num_bigfloat::ONE;
 
