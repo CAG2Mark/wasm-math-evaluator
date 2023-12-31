@@ -73,7 +73,7 @@ pub fn mantissa_tostr(mantissa: [i16; 10], fill: bool) -> String {
 
     let mut started = false;
     for x in mantissa.iter().rev() {
-        if *x == 0 {
+        if *x == 0 && !started {
             continue;
         }
         // right align, pad left with zeros

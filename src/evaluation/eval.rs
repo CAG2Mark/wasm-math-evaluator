@@ -18,6 +18,9 @@ impl ExprPos {
     pub fn eval(&self, vars: &VariableMap) -> Result<BigFloat, EvalError> {
         self.expr.eval(vars, &self.pos)
     }
+    pub fn check(&self, vars: &VariableMap) -> Result<(), EvalError> {
+        self.expr.check(vars, &self.pos)
+    }
 }
 
 pub enum EvalError {
@@ -123,6 +126,31 @@ impl Expr {
                 }
             },
             Expr::Nested(e) => e.eval(vars),
+        }
+    }
+
+    fn check(&self, vars: &VariableMap, pos: &Position) -> Result<(), EvalError> {
+        match self {
+            Expr::InfixOp(_, lhs, rhs) => {
+                lhs.check(vars)?;
+                rhs.check(vars)
+            }
+            Expr::PrefixFn(_, operand) => operand.check(vars),
+            Expr::PrefixOp(_, operand) => operand.check(vars),
+            Expr::PostfixOp(_, operand) => operand.check(vars),
+            Expr::Variable(nme) => match vars.get(nme) {
+                Some(_) => Ok(()),
+                None => Err(EvalError::VariableNotFound(nme.to_string(), *pos)),
+            },
+            Expr::Nested(e) => e.check(vars),
+            Expr::Const(_) => Ok(()),
+            Expr::OtherFunction(_, exprs) => {
+                for expr in exprs {
+                    expr.check(vars)?
+                }
+                Ok(())
+            }
+            Expr::Number(_, _) => Ok(()),
         }
     }
 }

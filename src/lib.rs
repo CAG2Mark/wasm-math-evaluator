@@ -69,17 +69,18 @@ pub enum EvalResult {
         sign: i8,
         is_exact: bool,
         text: String,
+        raw: [i16; 10]
     },
     CheckSuccess {
         latex: String,
     },
     EvalError {
         error: ErrorInfo,
-        latex: String
+        latex: String,
     },
     ParseError {
-        error: ErrorInfo
-    }
+        error: ErrorInfo,
+    },
 }
 
 // message, spaces, caretes
@@ -87,7 +88,7 @@ fn parse_error_to_info(err: ParseError, inp_len: usize) -> ErrorInfo {
     let (msg, start, len) = match err {
         ParseError::UnexpectedToken(pos) => ("unexpected token", pos.0, pos.1 - pos.0),
         ParseError::BraceNotClosed(pos) => ("unclosed parentheses", pos.0, pos.1 - pos.0),
-        ParseError::UnexpectedEnd => ("unexpected end", inp_len.max(1) - 1, 1),
+        ParseError::UnexpectedEnd => ("unexpected end", inp_len, 1),
         ParseError::WrongNumArgs(pos) => ("wrong number of arguments", pos.0, pos.1 - pos.0),
     };
 
@@ -165,7 +166,15 @@ pub fn check_expr(inp: &str) -> JsValue {
         }
     };
 
-    let res = EvalResult::CheckSuccess { latex: parsed.to_tex(0, 0).0 };
+    let res = match parsed.check(&HashMap::new()) {
+        Ok(_) => EvalResult::CheckSuccess {
+            latex: parsed.to_tex(0, 0).0,
+        },
+        Err(err) => EvalResult::EvalError {
+            error: eval_error_to_info(err),
+            latex: parsed.to_tex(0, 0).0,
+        },
+    };
 
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
@@ -202,6 +211,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
         }
     };
 
+    let zeros_raw = [0,0,0,0,0,0,0,0,0,0];
     match parsed.eval(&HashMap::new()) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
@@ -214,7 +224,8 @@ pub fn eval_expr(inp: &str) -> JsValue {
                     mantissa: mantissa_tostr(mantissa, true),
                     exp: if val.is_zero() { 0 } else { get_exponent(&val) },
                     sign: sign,
-                    text: bigfloat_auto_str(&val)
+                    text: bigfloat_auto_str(&val),
+                    raw: mantissa,
                 },
                 None => {
                     if val.is_nan() {
@@ -227,6 +238,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             exp: 0,
                             sign: 0,
                             text: bigfloat_auto_str(&val),
+                            raw: zeros_raw
                         }
                     } else if val.is_inf() {
                         EvalResult::EvalSuccess {
@@ -238,6 +250,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             exp: 0,
                             sign: val.get_sign(),
                             text: bigfloat_auto_str(&val),
+                            raw: zeros_raw
                         }
                     } else {
                         unreachable!()
@@ -250,7 +263,10 @@ pub fn eval_expr(inp: &str) -> JsValue {
         Err(err) => {
             let err = eval_error_to_info(err);
 
-            let res = EvalResult::EvalError { error: err, latex: parsed.to_tex(0, 0).0 };
+            let res = EvalResult::EvalError {
+                error: err,
+                latex: parsed.to_tex(0, 0).0,
+            };
 
             return serde_wasm_bindgen::to_value(&res).unwrap();
         }
