@@ -5,7 +5,7 @@ pub mod evaluation;
 pub mod parsing;
 pub mod util;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use evaluation::eval::EvalError;
 use parsing::parser::ParseError;
@@ -69,7 +69,7 @@ pub enum EvalResult {
         sign: i8,
         is_exact: bool,
         text: String,
-        raw: [i16; 10]
+        raw: [i16; 10],
     },
     CheckSuccess {
         latex: String,
@@ -137,8 +137,13 @@ pub fn print_eval_err(inp: &str, err: EvalError) {
 }
 
 #[wasm_bindgen]
-pub fn check_expr(inp: &str) -> JsValue {
+pub fn check_expr(inp: &str, variables: JsValue) -> JsValue {
     set_panic_hook();
+
+    let vars: Vec<String> = match serde_wasm_bindgen::from_value(variables) {
+        Ok(v) => v,
+        Err(_) => return serde_wasm_bindgen::to_value(&()).unwrap(),
+    };
 
     let mut tokens = match parsing::lexer::lex(inp) {
         Ok(tks) => tks,
@@ -166,7 +171,19 @@ pub fn check_expr(inp: &str) -> JsValue {
         }
     };
 
-    let res = match parsed.check(&HashMap::new()) {
+    let mut var_set: HashSet<char> = HashSet::new();
+    for s in vars {
+        if s.len() > 1 {
+            return serde_wasm_bindgen::to_value(&()).unwrap();
+        }
+
+        match s.chars().next() {
+            Some(c) => { var_set.insert(c); },
+            None => return serde_wasm_bindgen::to_value(&()).unwrap(),
+        }
+    }
+
+    let res = match parsed.check(&var_set) {
         Ok(_) => EvalResult::CheckSuccess {
             latex: parsed.to_tex(0, 0).0,
         },
@@ -211,7 +228,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
         }
     };
 
-    let zeros_raw = [0,0,0,0,0,0,0,0,0,0];
+    let zeros_raw = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     match parsed.eval(&HashMap::new()) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
@@ -238,7 +255,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             exp: 0,
                             sign: 0,
                             text: bigfloat_auto_str(&val),
-                            raw: zeros_raw
+                            raw: zeros_raw,
                         }
                     } else if val.is_inf() {
                         EvalResult::EvalSuccess {
@@ -250,7 +267,7 @@ pub fn eval_expr(inp: &str) -> JsValue {
                             exp: 0,
                             sign: val.get_sign(),
                             text: bigfloat_auto_str(&val),
-                            raw: zeros_raw
+                            raw: zeros_raw,
                         }
                     } else {
                         unreachable!()

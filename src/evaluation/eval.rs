@@ -1,5 +1,5 @@
 use num_bigfloat::BigFloat;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     ast::{
@@ -13,12 +13,13 @@ use crate::{
 };
 
 type VariableMap = HashMap<char, BigFloat>;
+type VariableSet = HashSet<char>;
 
 impl ExprPos {
     pub fn eval(&self, vars: &VariableMap) -> Result<BigFloat, EvalError> {
         self.expr.eval(vars, &self.pos)
     }
-    pub fn check(&self, vars: &VariableMap) -> Result<(), EvalError> {
+    pub fn check(&self, vars: &VariableSet) -> Result<(), EvalError> {
         self.expr.check(vars, &self.pos)
     }
 }
@@ -129,7 +130,7 @@ impl Expr {
         }
     }
 
-    fn check(&self, vars: &VariableMap, pos: &Position) -> Result<(), EvalError> {
+    fn check(&self, vars: &VariableSet, pos: &Position) -> Result<(), EvalError> {
         match self {
             Expr::InfixOp(_, lhs, rhs) => {
                 lhs.check(vars)?;
