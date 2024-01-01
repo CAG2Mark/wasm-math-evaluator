@@ -44,7 +44,11 @@ impl Expr {
                     Operator::Div => lhs_e / rhs_e,
                     Operator::Mod => lhs_e % rhs_e,
                     Operator::Factorial => unreachable!(),
-                    Operator::Pow => lhs_e.pow(&rhs_e),
+                    Operator::Pow => if lhs_e.is_zero() && rhs_e.is_zero() {
+                        num_bigfloat::ONE
+                    } else {
+                        lhs_e.pow(&rhs_e)
+                    }
                 };
 
                 Ok(ret)
