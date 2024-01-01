@@ -57,6 +57,7 @@ pub struct ErrorInfo {
     pub msg: String,
     pub start: usize,
     pub len: usize,
+    pub input: String
 }
 
 #[derive(Serialize, Deserialize)]
@@ -86,7 +87,7 @@ pub enum EvalResult {
 }
 
 // message, spaces, caretes
-fn parse_error_to_info(err: ParseError, inp_len: usize) -> ErrorInfo {
+fn parse_error_to_info(err: ParseError, inp_len: usize, input: String) -> ErrorInfo {
     let (msg, start, len) = match err {
         ParseError::UnexpectedToken(pos) => ("unexpected token", pos.0, pos.1 - pos.0),
         ParseError::BraceNotClosed(pos) => ("unclosed parentheses", pos.0, pos.1 - pos.0),
@@ -98,10 +99,11 @@ fn parse_error_to_info(err: ParseError, inp_len: usize) -> ErrorInfo {
         msg: msg.to_string(),
         start,
         len,
+        input
     }
 }
 
-fn eval_error_to_info(err: EvalError) -> ErrorInfo {
+fn eval_error_to_info(err: EvalError, input: String) -> ErrorInfo {
     let (msg, pos) = match err {
         EvalError::VariableNotFound(var_name, pos) => {
             (format!("variable {var_name} not found"), pos)
@@ -112,11 +114,12 @@ fn eval_error_to_info(err: EvalError) -> ErrorInfo {
         msg: msg,
         start: pos.0,
         len: pos.1 - pos.0,
+        input
     }
 }
 
 pub fn print_error(inp: &str, err: ParseError) {
-    let info = parse_error_to_info(err, inp.len());
+    let info = parse_error_to_info(err, inp.len(), inp.to_string());
 
     let spaces = format!("{: <1$}", "", info.start);
     let carets = format!("{:^<1$}", "", info.len);
@@ -127,7 +130,7 @@ pub fn print_error(inp: &str, err: ParseError) {
 }
 
 pub fn print_eval_err(inp: &str, err: EvalError) {
-    let info = eval_error_to_info(err);
+    let info = eval_error_to_info(err, inp.to_string());
 
     let spaces = format!("{: <1$}", "", info.start);
     let carets = format!("{:^<1$}", "", info.len);
@@ -171,7 +174,7 @@ pub fn check_expr(inp: &str, variables: JsValue) -> JsValue {
             latex: parsed.to_tex(0, 0).0,
         },
         Err(err) => EvalResult::EvalError {
-            error: eval_error_to_info(err),
+            error: eval_error_to_info(err, inp.to_string()),
             latex: parsed.to_tex(0, 0).0,
         },
     };
@@ -187,6 +190,7 @@ fn parse_str(inp: &str) -> Result<ExprPos, EvalResult> {
                 msg: "unexpected token".to_string(),
                 start: pos,
                 len: 1,
+                input: inp.to_string()
             };
 
             return Err(EvalResult::ParseError { error: err });
@@ -196,7 +200,7 @@ fn parse_str(inp: &str) -> Result<ExprPos, EvalResult> {
     match parsing::parser::parse(&mut tokens) {
         Ok(expr) => Ok(expr),
         Err(err) => {
-            let err = parse_error_to_info(err, inp.len());
+            let err = parse_error_to_info(err, inp.len(), inp.to_string());
 
             Err(EvalResult::ParseError { error: err })
         }
@@ -231,7 +235,7 @@ pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
         match parsed.eval(&var_map) {
             Ok(val) => var_map.insert(ch, val),
             Err(err) => {
-                let err = eval_error_to_info(err);
+                let err = eval_error_to_info(err, inp.to_string());
 
                 let res = EvalResult::EvalError {
                     error: err,
@@ -300,7 +304,7 @@ pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
             serde_wasm_bindgen::to_value(&res).unwrap()
         }
         Err(err) => {
-            let err = eval_error_to_info(err);
+            let err = eval_error_to_info(err, inp.to_string());
 
             let res = EvalResult::EvalError {
                 error: err,
