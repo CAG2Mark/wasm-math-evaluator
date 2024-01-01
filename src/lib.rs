@@ -57,7 +57,7 @@ pub struct ErrorInfo {
     pub msg: String,
     pub start: usize,
     pub len: usize,
-    pub input: String
+    pub input: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -89,17 +89,20 @@ pub enum EvalResult {
 // message, spaces, caretes
 fn parse_error_to_info(err: ParseError, inp_len: usize, input: String) -> ErrorInfo {
     let (msg, start, len) = match err {
-        ParseError::UnexpectedToken(pos) => ("unexpected token", pos.0, pos.1 - pos.0),
-        ParseError::BraceNotClosed(pos) => ("unclosed parentheses", pos.0, pos.1 - pos.0),
-        ParseError::UnexpectedEnd => ("unexpected end", inp_len, 1),
-        ParseError::WrongNumArgs(pos) => ("wrong number of arguments", pos.0, pos.1 - pos.0),
+        ParseError::UnexpectedToken(pos) => ("unexpected token".to_string(), pos.0, pos.1 - pos.0),
+        ParseError::BraceNotClosed(pos) => ("unclosed parentheses".to_string(), pos.0, pos.1 - pos.0),
+        ParseError::UnexpectedEnd => ("unexpected end".to_string(), inp_len, 1),
+        ParseError::WrongNumArgs(pos) => ("wrong number of arguments".to_string(), pos.0, pos.1 - pos.0),
+        ParseError::UnexpectedTokenExpected(pos, expected) => {
+            (format!("unexpected token, expected `{expected}`"), pos.0, pos.1 - pos.0)
+        }
     };
 
     ErrorInfo {
         msg: msg.to_string(),
         start,
         len,
-        input
+        input,
     }
 }
 
@@ -108,13 +111,16 @@ fn eval_error_to_info(err: EvalError, input: String) -> ErrorInfo {
         EvalError::VariableNotFound(var_name, pos) => {
             (format!("variable {var_name} not found"), pos)
         }
+        EvalError::VariableAlreadyDefined(var_name, pos) => {
+            (format!("variable {var_name} already defined"), pos)
+        }
     };
 
     ErrorInfo {
         msg: msg,
         start: pos.0,
         len: pos.1 - pos.0,
-        input
+        input,
     }
 }
 
@@ -154,7 +160,6 @@ pub fn check_expr(inp: &str, variables: JsValue) -> JsValue {
         Err(err) => return serde_wasm_bindgen::to_value(&err).unwrap(),
     };
 
-
     let mut var_set: HashSet<char> = HashSet::new();
     for s in vars {
         if s.len() > 1 {
@@ -169,7 +174,7 @@ pub fn check_expr(inp: &str, variables: JsValue) -> JsValue {
         }
     }
 
-    let res = match parsed.check(&var_set) {
+    let res = match parsed.check(&mut var_set) {
         Ok(_) => EvalResult::CheckSuccess {
             latex: parsed.to_tex(0, 0).0,
         },
@@ -187,10 +192,10 @@ fn parse_str(inp: &str) -> Result<ExprPos, EvalResult> {
         Ok(tks) => tks,
         Err(pos) => {
             let err = ErrorInfo {
-                msg: "unexpected token".to_string(),
+                msg: "unexpected character".to_string(),
                 start: pos,
                 len: 1,
-                input: inp.to_string()
+                input: inp.to_string(),
             };
 
             return Err(EvalResult::ParseError { error: err });
@@ -232,7 +237,7 @@ pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
             Err(err) => return serde_wasm_bindgen::to_value(&err).unwrap(),
         };
 
-        match parsed.eval(&var_map) {
+        match parsed.eval(&mut var_map) {
             Ok(val) => var_map.insert(ch, val),
             Err(err) => {
                 let err = eval_error_to_info(err, val.to_string());
@@ -241,7 +246,7 @@ pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
                     error: err,
                     latex: parsed.to_tex(0, 0).0,
                 };
-    
+
                 return serde_wasm_bindgen::to_value(&res).unwrap();
             }
         };
@@ -255,7 +260,7 @@ pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
     };
 
     let zeros_raw = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    match parsed.eval(&var_map) {
+    match parsed.eval(&mut var_map) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
                 Some((mantissa, _dp, sign, _exp)) => EvalResult::EvalSuccess {

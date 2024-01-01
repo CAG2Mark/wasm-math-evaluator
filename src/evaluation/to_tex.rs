@@ -13,6 +13,13 @@ impl ExprPos {
     }
 }
 
+fn extract_nested(e: &ExprPos) -> &ExprPos {
+    match &e.expr {
+        Expr::Nested(inner) => extract_nested(inner),
+        _ => e
+    }
+}
+
 impl Expr {
     // (tex output, left multiplication dot priority, right multiplication dot priority.)
     // multiplication dot priority:
@@ -214,6 +221,14 @@ impl Expr {
                 (ret, 0, 0)
             }
             Expr::Nested(e) => e.to_tex(lp, rp),
+            Expr::Let(ch, body, rest) => {
+                let body_tex = body.to_tex(0, 0).0;
+                let rest_tex = rest.to_tex(0, 0).0;
+                match extract_nested(body).expr {
+                    Expr::Let(_, _, _) => (format!("{ch} = \\left({}\\right); {}", body_tex, rest_tex), 20, 0),
+                    _ => (format!("{ch} = {}; {}", body_tex, rest_tex), 20, 0)
+                }
+            },
         }
     }
 }

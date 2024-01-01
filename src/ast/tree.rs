@@ -18,6 +18,7 @@ pub enum Expr {
     Const(MathConst),
     OtherFunction(OtherFn, Vec<ExprPos>),
     Number(BigFloat, usize),
+    Let(char, Box<ExprPos>, Box<ExprPos>)
     // ImaginaryConst
 }
 
@@ -52,6 +53,7 @@ impl fmt::Display for Expr {
             Expr::Number(n, d) => write!(f, "{:.*}", d, n),
             Expr::Const(c) => write!(f, "{}", c),
             Expr::Nested(e) => write!(f, "({})", e),
+            Expr::Let(ch, body, rest) => write!(f, "let {ch} = {body}; {rest}"),
         }
     }
 }

@@ -16,20 +16,21 @@ type VariableMap = HashMap<char, BigFloat>;
 type VariableSet = HashSet<char>;
 
 impl ExprPos {
-    pub fn eval(&self, vars: &VariableMap) -> Result<BigFloat, EvalError> {
+    pub fn eval(&self, vars: &mut VariableMap) -> Result<BigFloat, EvalError> {
         self.expr.eval(vars, &self.pos)
     }
-    pub fn check(&self, vars: &VariableSet) -> Result<(), EvalError> {
+    pub fn check(&self, vars: &mut VariableSet) -> Result<(), EvalError> {
         self.expr.check(vars, &self.pos)
     }
 }
 
 pub enum EvalError {
     VariableNotFound(String, Position),
+    VariableAlreadyDefined(String, Position),
 }
 
 impl Expr {
-    fn eval(&self, vars: &VariableMap, pos: &Position) -> Result<BigFloat, EvalError> {
+    fn eval(&self, vars: &mut VariableMap, pos: &Position) -> Result<BigFloat, EvalError> {
         match &self {
             Expr::Number(n, _) => Ok(*n),
             // Expr::ImaginaryConst => Ok(Complex64 { re: 0.0, im: 1.0 }),
@@ -130,10 +131,24 @@ impl Expr {
                 }
             },
             Expr::Nested(e) => e.eval(vars),
+            Expr::Let(ch, body, rest) => {
+                match vars.get(ch) {
+                    Some(_) => Err(EvalError::VariableAlreadyDefined(ch.to_string(), *pos)),
+                    None => {
+                        let body_e = body.eval(vars)?;
+
+                        vars.insert(*ch, body_e);
+                        let ret = rest.eval(vars)?;
+                        vars.remove(ch);
+
+                        Ok(ret)
+                    },
+                }
+            },
         }
     }
 
-    fn check(&self, vars: &VariableSet, pos: &Position) -> Result<(), EvalError> {
+    fn check(&self, vars: &mut VariableSet, pos: &Position) -> Result<(), EvalError> {
         match self {
             Expr::InfixOp(_, lhs, rhs) => {
                 lhs.check(vars)?;
@@ -155,6 +170,20 @@ impl Expr {
                 Ok(())
             }
             Expr::Number(_, _) => Ok(()),
+            Expr::Let(ch, body, rest) => {
+                match vars.get(ch) {
+                    Some(_) => Err(EvalError::VariableAlreadyDefined(ch.to_string(), *pos)),
+                    None => {
+                        body.check(vars)?;
+
+                        vars.insert(*ch);
+                        rest.check(vars)?;
+                        vars.remove(ch);
+
+                        Ok(())
+                    },
+                }
+            },
         }
     }
 }

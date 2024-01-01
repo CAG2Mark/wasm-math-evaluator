@@ -58,9 +58,12 @@ pub enum Token {
     OtherFunction(OtherFn),
     OpenBrace,
     CloseBrace,
+    Semicolon,
     Comma,
     // ImaginaryConst,
     Whitespace,
+    Let,
+    Equals
 }
 
 pub(crate) type Position = (usize, usize);
@@ -152,6 +155,9 @@ impl fmt::Display for Token {
             Token::OtherFunction(f) => f.to_string(),
             Token::Const(c) => c.to_string(),
             Token::Comma => ",".to_string(),
+            Token::Let => "let".to_string(),
+            Token::Equals => "=".to_string(),
+            Token::Semicolon => ";".to_string(),
         };
 
         write!(f, "{}", s)

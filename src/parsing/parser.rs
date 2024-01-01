@@ -7,6 +7,7 @@ use crate::ast::{
 
 pub enum ParseError {
     UnexpectedToken(Position),
+    UnexpectedTokenExpected(Position, Token),
     BraceNotClosed(Position),
     UnexpectedEnd,
     WrongNumArgs(Position),
@@ -37,6 +38,46 @@ pub fn parse(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
 }
 
 fn parse_expr(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
+    match tokens.front() {
+        Some(TokenPos { tk: Token::Let, pos: _ }) => parse_let(tokens),
+        Some(_) => parse_op_expr(tokens),
+        _ => return Err(ParseError::UnexpectedEnd),
+    }
+}
+
+fn parse_let(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
+    let pos = match tokens.pop_front() {
+        Some(TokenPos { tk: Token::Let, pos }) => pos,
+        Some(tk) => return Err(ParseError::UnexpectedToken(tk.pos)),
+        _ => return Err(ParseError::UnexpectedEnd),
+    };
+
+    let ch = match tokens.pop_front() {
+        Some(TokenPos { tk: Token::Variable(ch), pos: _ }) => ch,
+        Some(tk) => return Err(ParseError::UnexpectedToken(tk.pos)),
+        _ => return Err(ParseError::UnexpectedEnd),
+    };
+
+    match tokens.pop_front() {
+        Some(TokenPos { tk: Token::Equals, pos: _ }) => (),
+        Some(tk) => return Err(ParseError::UnexpectedTokenExpected(tk.pos, Token::Equals)),
+        _ => return Err(ParseError::UnexpectedEnd),
+    };
+
+    let body = parse_op_expr(tokens)?;
+    match tokens.pop_front() {
+        Some(TokenPos { tk: Token::Semicolon, pos: _ }) => (),
+        Some(tk) => return Err(ParseError::UnexpectedTokenExpected(tk.pos, Token::Semicolon)),
+        None => return Err(ParseError::UnexpectedEnd)
+    };
+    let rest = parse_expr(tokens)?;
+    
+    let new_pos = (pos.0, rest.pos.1);
+
+    Ok(ExprPos { expr: Expr::Let(ch, Box::new(body), Box::new(rest)), pos: new_pos })
+}
+
+fn parse_op_expr(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
     let mut l: VecDeque<ExprOrOp> = VecDeque::new();
 
     // Convert into a list of expressions and tokens/operators.
@@ -79,7 +120,8 @@ fn parse_expr(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
             Token::CloseBrace => break,
 
             Token::Whitespace => unreachable!("whitespace seen"),
-            Token::Comma => break
+            Token::Comma | Token::Semicolon => break,
+            Token::Let | Token::Equals => return Err(ParseError::UnexpectedToken(first.pos)),
         }
     }
 
@@ -334,7 +376,7 @@ pub fn parse_atomic(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
                 }
 
                 Token::Whitespace => unreachable!("whitespace detected"),
-                Token::Comma => return Err(ParseError::UnexpectedToken(pos)),
+                Token::Comma | Token::Let | Token::Equals | Token::Semicolon => return Err(ParseError::UnexpectedToken(pos)),
             };
 
             Ok(ret)

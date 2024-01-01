@@ -54,6 +54,27 @@ const MATH_CONSTS: &'static [(&'static str, MathConst)] = &[
 
 const WHITESPACE: &'static [char] = &[' ', '\t', '\n'];
 
+fn try_lex_let(input: &str) -> Option<(Token, usize)> {
+    if input.starts_with("let") {
+        return Some((Token::Let, 3));
+    }
+    None
+}
+
+fn try_lex_equal(input: &str) -> Option<(Token, usize)> {
+    if input.starts_with("=") {
+        return Some((Token::Equals, 1));
+    }
+    None
+}
+
+fn try_lex_semicolon(input: &str) -> Option<(Token, usize)> {
+    if input.starts_with(";") {
+        return Some((Token::Semicolon, 1));
+    }
+    None
+}
+
 fn try_lex_prefix_fn(input: &str) -> Option<(Token, usize)> {
     for (s, f) in PREFIX_FUNCTIONS {
         if input.starts_with(s) {
@@ -126,8 +147,7 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
     let mut decimal_len = 0;
 
     // while the next char exists, and it is a digit, or it is a decimal point/comma if we have not seen one already
-    while let Some(c) = cur
-    {
+    while let Some(c) = cur {
         if !c.is_numeric() && (seen_dot || !is_decimal_point(c)) {
             break;
         }
@@ -145,11 +165,11 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
             decimal_len += 1;
 
             match cur {
-                Some(c) if c.is_numeric() => { },
+                Some(c) if c.is_numeric() => {}
                 _ => {
                     len -= 2;
                     break;
-                },
+                }
             }
         }
 
@@ -197,7 +217,7 @@ fn try_lex_whitespace(input: &str) -> Option<(Token, usize)> {
         if !WHITESPACE.contains(&c) {
             break;
         }
-        
+
         len += 1;
         cur = it.next();
     }
@@ -213,6 +233,8 @@ type Lexer = fn(&str) -> Option<(Token, usize)>;
 
 const LEXERS: &'static [Lexer] = &[
     try_lex_whitespace,
+    try_lex_let,
+    try_lex_equal,
     try_lex_prefix_fn,
     try_lex_other_fn,
     try_lex_math_const,
@@ -222,6 +244,7 @@ const LEXERS: &'static [Lexer] = &[
     // try_lex_imaginary,
     try_lex_variable,
     try_lex_brace_pipe,
+    try_lex_semicolon
 ];
 
 pub fn lex(input: &str) -> Result<VecDeque<TokenPos>, Position> {
