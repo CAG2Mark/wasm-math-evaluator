@@ -235,7 +235,7 @@ pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
         match parsed.eval(&var_map) {
             Ok(val) => var_map.insert(ch, val),
             Err(err) => {
-                let err = eval_error_to_info(err, s.to_string());
+                let err = eval_error_to_info(err, val.to_string());
 
                 let res = EvalResult::EvalError {
                     error: err,
