@@ -25,7 +25,6 @@ impl ExprPos {
 }
 
 pub enum EvalError {
-    ModByZero(Position),
     VariableNotFound(String, Position),
 }
 

@@ -103,7 +103,6 @@ fn parse_error_to_info(err: ParseError, inp_len: usize) -> ErrorInfo {
 
 fn eval_error_to_info(err: EvalError) -> ErrorInfo {
     let (msg, pos) = match err {
-        EvalError::ModByZero(pos) => ("mod by zero".to_string(), pos),
         EvalError::VariableNotFound(var_name, pos) => {
             (format!("variable {var_name} not found"), pos)
         }
