@@ -1,4 +1,4 @@
-use num_bigfloat::BigFloat;
+use num_bigfloat::{BigFloat, RoundingMode::ToEven};
 
 use super::bigfloat_utils::try_to_int;
 
@@ -158,7 +158,7 @@ pub fn gamma_spouge(z: &BigFloat) -> BigFloat {
                 m -= 1
             }
 
-            ans - ans.frac()
+            ans.round(0, ToEven)
         }
         _ => {
             // Reflection formula

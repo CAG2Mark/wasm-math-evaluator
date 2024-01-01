@@ -7,7 +7,9 @@ pub mod util;
 
 use std::collections::{HashMap, HashSet};
 
+use ast::tree::ExprPos;
 use evaluation::eval::EvalError;
+use num_bigfloat::BigFloat;
 use parsing::parser::ParseError;
 use util::bigfloat_utils::{bigfloat_auto_str, get_decimal_places, get_exponent, mantissa_tostr};
 use utils::set_panic_hook;
@@ -145,31 +147,11 @@ pub fn check_expr(inp: &str, variables: JsValue) -> JsValue {
         Err(_) => return serde_wasm_bindgen::to_value(&()).unwrap(),
     };
 
-    let mut tokens = match parsing::lexer::lex(inp) {
-        Ok(tks) => tks,
-        Err(pos) => {
-            let err = ErrorInfo {
-                msg: "unexpected token".to_string(),
-                start: pos,
-                len: 1,
-            };
-
-            let res = EvalResult::ParseError { error: err };
-
-            return serde_wasm_bindgen::to_value(&res).unwrap();
-        }
-    };
-
-    let parsed = match parsing::parser::parse(&mut tokens) {
+    let parsed = match parse_str(inp) {
         Ok(expr) => expr,
-        Err(err) => {
-            let err = parse_error_to_info(err, inp.len());
-
-            let res = EvalResult::ParseError { error: err };
-
-            return serde_wasm_bindgen::to_value(&res).unwrap();
-        }
+        Err(err) => return serde_wasm_bindgen::to_value(&err).unwrap(),
     };
+
 
     let mut var_set: HashSet<char> = HashSet::new();
     for s in vars {
@@ -178,7 +160,9 @@ pub fn check_expr(inp: &str, variables: JsValue) -> JsValue {
         }
 
         match s.chars().next() {
-            Some(c) => { var_set.insert(c); },
+            Some(c) => {
+                var_set.insert(c);
+            }
             None => return serde_wasm_bindgen::to_value(&()).unwrap(),
         }
     }
@@ -196,12 +180,7 @@ pub fn check_expr(inp: &str, variables: JsValue) -> JsValue {
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
-#[wasm_bindgen]
-pub fn eval_expr(inp: &str) -> JsValue {
-    set_panic_hook();
-
-    let zeros = "".to_string();
-
+fn parse_str(inp: &str) -> Result<ExprPos, EvalResult> {
     let mut tokens = match parsing::lexer::lex(inp) {
         Ok(tks) => tks,
         Err(pos) => {
@@ -211,25 +190,69 @@ pub fn eval_expr(inp: &str) -> JsValue {
                 len: 1,
             };
 
-            let res = EvalResult::ParseError { error: err };
-
-            return serde_wasm_bindgen::to_value(&res).unwrap();
+            return Err(EvalResult::ParseError { error: err });
         }
     };
 
-    let parsed = match parsing::parser::parse(&mut tokens) {
-        Ok(expr) => expr,
+    match parsing::parser::parse(&mut tokens) {
+        Ok(expr) => Ok(expr),
         Err(err) => {
             let err = parse_error_to_info(err, inp.len());
 
-            let res = EvalResult::ParseError { error: err };
-
-            return serde_wasm_bindgen::to_value(&res).unwrap();
+            Err(EvalResult::ParseError { error: err })
         }
+    }
+}
+
+#[wasm_bindgen]
+pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
+    set_panic_hook();
+
+    let vars: Vec<(String, String)> = match serde_wasm_bindgen::from_value(variables) {
+        Ok(v) => v,
+        Err(_) => vec![],
+    };
+
+    let mut var_map: HashMap<char, BigFloat> = HashMap::new();
+    for (s, val) in vars {
+        if s.len() > 1 {
+            return serde_wasm_bindgen::to_value(&()).unwrap();
+        }
+
+        let ch = match s.chars().next() {
+            Some(c) => c,
+            None => return serde_wasm_bindgen::to_value(&()).unwrap(),
+        };
+
+        let parsed = match parse_str(&val) {
+            Ok(expr) => expr,
+            Err(err) => return serde_wasm_bindgen::to_value(&err).unwrap(),
+        };
+
+        match parsed.eval(&var_map) {
+            Ok(val) => var_map.insert(ch, val),
+            Err(err) => {
+                let err = eval_error_to_info(err);
+
+                let res = EvalResult::EvalError {
+                    error: err,
+                    latex: parsed.to_tex(0, 0).0,
+                };
+    
+                return serde_wasm_bindgen::to_value(&res).unwrap();
+            }
+        };
+    }
+
+    let zeros = "".to_string();
+
+    let parsed = match parse_str(inp) {
+        Ok(expr) => expr,
+        Err(err) => return serde_wasm_bindgen::to_value(&err).unwrap(),
     };
 
     let zeros_raw = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    match parsed.eval(&HashMap::new()) {
+    match parsed.eval(&var_map) {
         Ok(val) => {
             let res = match val.to_raw_parts() {
                 Some((mantissa, _dp, sign, _exp)) => EvalResult::EvalSuccess {

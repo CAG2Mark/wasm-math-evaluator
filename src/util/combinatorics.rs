@@ -1,4 +1,4 @@
-use num_bigfloat::BigFloat;
+use num_bigfloat::{BigFloat, RoundingMode::ToEven};
 
 use super::{bigfloat_utils::try_to_int, gamma::factorial};
 
@@ -48,6 +48,8 @@ fn ncr_int(n: &BigFloat, r: i128) -> BigFloat {
         ncr_int_int(try_to_int(&n)?, r)
     }
 
+    let round = try_to_int(&n).is_some();
+
     match try_int_int(&n, r) {
         Some(ans) => ans,
         None => {
@@ -58,7 +60,11 @@ fn ncr_int(n: &BigFloat, r: i128) -> BigFloat {
                 cur /= BigFloat::from(r - i);
             }
 
-            cur
+            if round {
+                cur.round(0, ToEven)
+            } else {
+                cur
+            }
         }
     }
 }
