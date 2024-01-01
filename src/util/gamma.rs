@@ -131,10 +131,10 @@ pub fn gamma_spouge(z: &BigFloat) -> BigFloat {
     match try_to_int(z) {
         Some(n) if n < 34 => {
             // exact factorial calculation
-            if n < 0 {
+            if n <= 0 {
                 return f64::NAN.into();
             }
-            if n == 0 {
+            if n == 1 {
                 return num_bigfloat::ONE;
             }
             let mut m: u128 = n as u128 - 1;
