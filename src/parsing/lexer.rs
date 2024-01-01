@@ -126,24 +126,30 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
     let mut decimal_len = 0;
 
     // while the next char exists, and it is a digit, or it is a decimal point/comma if we have not seen one already
-    while cur.is_some()
-        && (cur.unwrap().is_numeric() || (!seen_dot && (is_decimal_point(cur.unwrap()))))
+    while let Some(c) = cur
     {
+        if !c.is_numeric() && (seen_dot || !is_decimal_point(c)) {
+            break;
+        }
+
         len += 1;
         if seen_dot {
             decimal_len += 1;
         }
 
         // there must be a digit after a dot
-        if is_decimal_point(cur.unwrap()) {
+        if is_decimal_point(c) {
             seen_dot = true;
             cur = it.next();
             len += 1;
             decimal_len += 1;
 
-            if cur.is_none() || !cur.unwrap().is_numeric() {
-                len -= 2;
-                break;
+            match cur {
+                Some(c) if c.is_numeric() => { },
+                _ => {
+                    len -= 2;
+                    break;
+                },
             }
         }
 
@@ -187,7 +193,11 @@ fn try_lex_whitespace(input: &str) -> Option<(Token, usize)> {
     let mut len = 0;
 
     // while the next char exists, and it is a digit, or it is a decimal point/comma if we have not seen one already
-    while cur.is_some() && (WHITESPACE.contains(&cur.unwrap())) {
+    while let Some(c) = cur {
+        if !WHITESPACE.contains(&c) {
+            break;
+        }
+        
         len += 1;
         cur = it.next();
     }

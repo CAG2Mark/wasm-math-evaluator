@@ -40,9 +40,7 @@ fn parse_expr(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
     let mut l: VecDeque<ExprOrOp> = VecDeque::new();
 
     // Convert into a list of expressions and tokens/operators.
-    while !tokens.is_empty() {
-        let first = tokens.front().unwrap();
-
+    while let Some(first) = tokens.front() {
         match &first.tk {
             Token::Number(_, _)
             | Token::Variable(_)

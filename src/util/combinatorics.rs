@@ -72,7 +72,10 @@ fn ncr_int(n: &BigFloat, r: i128) -> BigFloat {
 pub fn ncr(n: &BigFloat, r: &BigFloat) -> BigFloat {
     match try_to_int(&r) {
         Some(r) => ncr_int(n, r),
-        None => factorial(n) / (factorial(&(*n - r)) * factorial(r)),
+        None => match try_to_int(&(*n - r)) {
+            Some(p) if p < 0 => num_bigfloat::ZERO,
+            _ => factorial(n) / (factorial(&(*n - r)) * factorial(r))
+        }
     }
 }
 
