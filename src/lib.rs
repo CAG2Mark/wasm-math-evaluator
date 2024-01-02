@@ -1,3 +1,5 @@
+#![no_main]
+
 mod utils;
 
 pub mod ast;

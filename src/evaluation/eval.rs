@@ -131,9 +131,9 @@ impl Expr {
                 }
             },
             Expr::Nested(e) => e.eval(vars),
-            Expr::Let(ch, body, rest) => {
+            Expr::Let(ch, ch_pos, body, rest) => {
                 match vars.get(ch) {
-                    Some(_) => Err(EvalError::VariableAlreadyDefined(ch.to_string(), *pos)),
+                    Some(_) => Err(EvalError::VariableAlreadyDefined(ch.to_string(), *ch_pos)),
                     None => {
                         let body_e = body.eval(vars)?;
 
@@ -170,9 +170,9 @@ impl Expr {
                 Ok(())
             }
             Expr::Number(_, _) => Ok(()),
-            Expr::Let(ch, body, rest) => {
+            Expr::Let(ch, ch_pos, body, rest) => {
                 match vars.get(ch) {
-                    Some(_) => Err(EvalError::VariableAlreadyDefined(ch.to_string(), *pos)),
+                    Some(_) => Err(EvalError::VariableAlreadyDefined(ch.to_string(), *ch_pos)),
                     None => {
                         body.check(vars)?;
 

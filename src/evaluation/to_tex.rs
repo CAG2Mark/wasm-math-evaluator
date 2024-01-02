@@ -151,7 +151,7 @@ impl Expr {
                     PrefixFn::Abs => (format!("\\left|{{{}}}\\right|", formatted.0), 0, 0),
                     _ => {
                         let ret = format!("\\operatorname{{{}}}{}", func, formatted.0);
-                        if rp > 1 {
+                        if rp > 3 {
                             (format!("\\left({ret}\\right)"), 0, 0)
                         } else {
                             (ret, 0, 2)
@@ -221,12 +221,19 @@ impl Expr {
                 (ret, 0, 0)
             }
             Expr::Nested(e) => e.to_tex(lp, rp),
-            Expr::Let(ch, body, rest) => {
+            Expr::Let(ch, _, body, rest) => {
                 let body_tex = body.to_tex(0, 0).0;
                 let rest_tex = rest.to_tex(0, 0).0;
-                match extract_nested(body).expr {
-                    Expr::Let(_, _, _) => (format!("{ch} = \\left({}\\right); {}", body_tex, rest_tex), 20, 0),
-                    _ => (format!("{ch} = {}; {}", body_tex, rest_tex), 20, 0)
+                
+                let ret = match extract_nested(body).expr {
+                    Expr::Let(_, _, _, _) => format!("{ch} = \\left({}\\right); {}", body_tex, rest_tex),
+                    _ => format!("{ch} = {}; {}", body_tex, rest_tex)
+                };
+
+                if lp > 0 || rp > 0 {
+                    (format!("\\left({ret}\\right)"), 2, 2)
+                } else {
+                    (ret, 2, 2)
                 }
             },
         }

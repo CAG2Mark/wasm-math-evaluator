@@ -52,8 +52,8 @@ fn parse_let(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
         _ => return Err(ParseError::UnexpectedEnd),
     };
 
-    let ch = match tokens.pop_front() {
-        Some(TokenPos { tk: Token::Variable(ch), pos: _ }) => ch,
+    let (ch, ch_pos) = match tokens.pop_front() {
+        Some(TokenPos { tk: Token::Variable(ch), pos: ch_pos }) => (ch, ch_pos),
         Some(tk) => return Err(ParseError::UnexpectedToken(tk.pos)),
         _ => return Err(ParseError::UnexpectedEnd),
     };
@@ -74,7 +74,7 @@ fn parse_let(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
     
     let new_pos = (pos.0, rest.pos.1);
 
-    Ok(ExprPos { expr: Expr::Let(ch, Box::new(body), Box::new(rest)), pos: new_pos })
+    Ok(ExprPos { expr: Expr::Let(ch, ch_pos, Box::new(body), Box::new(rest)), pos: new_pos })
 }
 
 fn parse_op_expr(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
