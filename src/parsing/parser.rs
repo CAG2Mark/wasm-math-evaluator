@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::ast::{
-    tokens::{Operator, Position, PrefixFn, Token, TokenPos, OtherFn, MathConst},
+    tokens::{Operator, Position, PrefixFn, Token, TokenPos, OtherFn},
     tree::{Expr, ExprPos},
 };
 

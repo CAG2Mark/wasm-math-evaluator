@@ -182,7 +182,25 @@ fn try_lex_number(input: &str) -> Option<(Token, usize)> {
 
     let sliced = &input[0..len].replace(",", ".");
 
-    let num = BigFloat::parse(sliced)?;
+    // library is slightly buggy and parses "01" as "1e39"
+    // so we need to trim away the zeros at the start
+    
+    let mut cur: usize = len;
+    let chars = sliced.chars();
+    let mut i = 0;
+    for ch in chars {
+        if ch != '0' {
+            cur = i;
+            break;
+        }
+        i += 1;
+    }
+
+    if cur == len {
+        return Some((Token::Number(num_bigfloat::ZERO, decimal_len), len))
+    }
+
+    let num = BigFloat::parse(&sliced[cur..len])?;
 
     Some((Token::Number(num, decimal_len), len))
 }
