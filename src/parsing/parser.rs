@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::ast::{
-    tokens::{Operator, Position, PrefixFn, Token, TokenPos, OtherFn},
+    tokens::{Operator, Position, PrefixFn, Token, TokenPos, OtherFn, MathConst},
     tree::{Expr, ExprPos},
 };
 
@@ -127,7 +127,7 @@ fn parse_op_expr(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
 
     // Pratt parse.
 
-    let parsed = pratt_parse(&mut l, 0);
+    let parsed = pratt_parse_iterative(&mut l);
 
     match parsed {
         Ok(expr) => Ok(expr),
@@ -176,6 +176,145 @@ const FUNC_RIGHT_PREC: u16 = 6;
 
 const IMPLICIT_TIMES_L_PREC: u16 = 3;
 const IMPLICIT_TIMES_R_PREC: u16 = 4;
+
+// Only emulate stack frames for non-tail-recursive calls
+enum PrattParseFrame {
+    A(u16),
+    APrefixOp(u16, Operator, Position),
+    APrefixFn(u16, PrefixFn, Position),
+    B(ExprPos, u16),
+    BOp(ExprPos, u16, Operator),
+    BImplicit(ExprPos, u16)
+}
+
+// Basically emulate the recursive version
+fn pratt_parse_iterative(l: &mut VecDeque<ExprOrOp>) -> Result<ExprPos, PrattParseError> {
+    use PrattParseFrame::*;
+
+    let mut st: Vec<PrattParseFrame> = vec![];
+    st.push(PrattParseFrame::A(0));
+
+    let mut ret: Option<ExprPos> = None; // dummy variable, not used
+
+    while let Some(frame) = st.pop() {
+        match frame {
+            A(prec) => {
+                if let Some(front) = l.pop_front() {
+                    match front {
+                        ExprOrOp::Ex(e) => st.push(B(e, prec)),
+                        ExprOrOp::Op(op, pos) if is_prefix(&op) => {
+                            st.push(APrefixOp(prec, op, pos));
+                            st.push(A(op_prec(&op).1));
+                        }
+                        ExprOrOp::Prefix(f, pos) => {
+                            st.push(APrefixFn(prec, f, pos));
+                            st.push(A(FUNC_RIGHT_PREC));
+                        }
+                        ExprOrOp::Op(_, pos) | ExprOrOp::PostfixOp(_, pos) => {
+                            return Err(PrattParseError::UnexpectedToken(pos))
+                        }
+                    }
+                } else {
+                    return Err(PrattParseError::UnexpectedEnd)
+                }
+            },
+            APrefixOp(prec, op, op_pos) => {
+                let rhs = ret.unwrap();
+                ret = None;
+
+                let rhs_pos = rhs.pos;
+
+                let val = ExprPos {
+                    expr: Expr::PrefixOp(op, Box::new(rhs)),
+                    pos: (op_pos.0, rhs_pos.1),
+                };
+
+                st.push(B(val, prec));
+            },
+            APrefixFn(prec, f, f_pos) => {
+                let rhs = ret.unwrap();
+                ret = None;
+
+                let rhs_pos = rhs.pos;
+
+                let val = ExprPos {
+                    expr: Expr::PrefixFn(f, Box::new(rhs)),
+                    pos: (f_pos.0, rhs_pos.1),
+                };
+
+                st.push(B(val, prec));
+            }
+            B(acc, prec) => {
+                if let Some(front) = l.front() {
+                    match front {
+                        // infix operators
+                        ExprOrOp::Op(op, _) if is_infix(&op) && op_prec(&op).0 > prec => {
+                            let op_prec = op_prec(op).1;
+                            st.push(BOp(acc, prec, *op));
+                            st.push(A(op_prec));
+                            l.pop_front();
+                        }
+                        // implicit multiplication
+                        ExprOrOp::Ex(_) | ExprOrOp::Prefix(_, _) if IMPLICIT_TIMES_L_PREC > prec => {
+                            st.push(BImplicit(acc, prec));
+                            st.push(A(IMPLICIT_TIMES_R_PREC));
+                        }
+                        // postfix operators
+                        ExprOrOp::PostfixOp(op, pos) if op_prec(&op).0 > prec => {
+                            let acc_pos = acc.pos;
+
+                            let val = ExprPos {
+                                expr: Expr::PostfixOp(*op, Box::new(acc)),
+                                pos: (acc_pos.0, pos.1),
+                            };
+
+                            l.pop_front();
+
+                            // postfix the accumlated value and continue parsing
+                            st.push(B(val, prec));
+                        }
+                        _ => ret = Some(acc)
+                    }
+                } else {
+                    ret = Some(acc)
+                }
+            }
+            BOp(acc, prec, op) => {
+                let rhs = ret.unwrap();
+                ret = None;
+                let acc_pos = acc.pos;
+                let rhs_pos = rhs.pos;
+
+                let new_acc = ExprPos {
+                    expr: Expr::InfixOp(op, Box::new(acc), Box::new(rhs)),
+                    pos: (acc_pos.0, rhs_pos.1),
+                };
+                
+                st.push(B(new_acc, prec));
+            },
+            BImplicit(acc, prec) => {
+                let rhs = ret.unwrap();
+                ret = None;
+
+                let acc_pos = acc.pos;
+    
+                let rhs_pos = rhs.pos;
+    
+                let new_acc = ExprPos {
+                    expr: Expr::InfixOp(Operator::Times, Box::new(acc), Box::new(rhs)),
+                    pos: (acc_pos.0, rhs_pos.1),
+                };
+                
+                st.push(B(new_acc, prec));
+            },
+        }
+    }
+
+    match ret {
+        Some(v) => Ok(v),
+        None => Err(PrattParseError::UnexpectedEnd),
+    }
+}
 
 fn pratt_parse(l: &mut VecDeque<ExprOrOp>, prec: u16) -> Result<ExprPos, PrattParseError> {
     let front = l.pop_front();
