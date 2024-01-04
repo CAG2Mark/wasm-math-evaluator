@@ -120,7 +120,7 @@ fn digits_trim_sigfigs(digits: String, sigfigs: usize) -> String {
         v[i] %= 10;
 
         if i > 0 {
-            v[i] += 1;
+            v[i - 1] += 1;
         }
     }
 
