@@ -8,7 +8,7 @@ use crate::{
     },
     util::{
         combinatorics::{ncr, npr},
-        gamma,
+        gamma, atan2::atan2,
     },
 };
 
@@ -122,6 +122,11 @@ impl Expr {
                     let r = params[1].eval(vars)?;
                     Ok(npr(&n, &r))
                 }
+                OtherFn::Atan2 => {
+                    let y = params[0].eval(vars)?;
+                    let x = params[1].eval(vars)?;
+                    Ok(atan2(&y, &x))
+                },
             },
             Expr::Const(c) => match c {
                 MathConst::PI => Ok(num_bigfloat::PI),

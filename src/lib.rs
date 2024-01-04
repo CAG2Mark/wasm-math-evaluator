@@ -13,7 +13,7 @@ use ast::tree::ExprPos;
 use evaluation::eval::EvalError;
 use num_bigfloat::BigFloat;
 use parsing::parser::ParseError;
-use util::bigfloat_utils::{bigfloat_auto_str, get_decimal_places, get_exponent, mantissa_tostr};
+use util::bigfloat_utils::{bigfloat_auto_str, get_decimal_places, get_exponent, mantissa_tostr, get_significant_digits};
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
@@ -215,6 +215,8 @@ fn parse_str(inp: &str) -> Result<ExprPos, EvalResult> {
     }
 }
 
+const SIGFIGS: usize = 25;
+
 #[wasm_bindgen]
 pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
     set_panic_hook();
@@ -272,11 +274,11 @@ pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
                     is_inf: false,
                     iz_zero: val.is_zero(),
                     is_exact: val.is_zero()
-                        || (get_exponent(&val) + get_decimal_places(&val) as i64) < 39,
+                        || get_significant_digits(&val) <= 25,
                     mantissa: mantissa_tostr(mantissa, true),
                     exp: if val.is_zero() { 0 } else { get_exponent(&val) },
                     sign: sign,
-                    text: bigfloat_auto_str(&val),
+                    text: bigfloat_auto_str(&val, SIGFIGS),
                     raw: mantissa,
                 },
                 None => {
@@ -290,7 +292,7 @@ pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
                             mantissa: zeros,
                             exp: 0,
                             sign: 0,
-                            text: bigfloat_auto_str(&val),
+                            text: bigfloat_auto_str(&val, SIGFIGS),
                             raw: zeros_raw,
                         }
                     } else if val.is_inf() {
@@ -303,7 +305,7 @@ pub fn eval_expr(inp: &str, variables: JsValue) -> JsValue {
                             mantissa: zeros,
                             exp: 0,
                             sign: val.get_sign(),
-                            text: bigfloat_auto_str(&val),
+                            text: bigfloat_auto_str(&val, SIGFIGS),
                             raw: zeros_raw,
                         }
                     } else {

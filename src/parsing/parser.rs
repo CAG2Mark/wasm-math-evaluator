@@ -417,7 +417,8 @@ fn pratt_parse_cont(
 pub fn get_param_count(func: &OtherFn) -> usize { 
     match func {
         OtherFn::Ncr => 2,
-        OtherFn::Npr => 2
+        OtherFn::Npr => 2,
+        OtherFn::Atan2 => 2,
     }
 }
 

@@ -33,8 +33,11 @@ const PREFIX_FUNCTIONS: &'static [(&'static str, PrefixFn)] = &[
     ("abs", PrefixFn::Abs),
 ];
 
-const OTHER_FUNCTIONS: &'static [(&'static str, OtherFn)] =
-    &[("nCr", OtherFn::Ncr), ("nPr", OtherFn::Npr)];
+const OTHER_FUNCTIONS: &'static [(&'static str, OtherFn)] = &[
+    ("nCr", OtherFn::Ncr), 
+    ("nPr", OtherFn::Npr),
+    ("atan2", OtherFn::Atan2),
+];
 
 const OPS: &'static [(&'static str, Operator)] = &[
     ("+", Operator::Plus),

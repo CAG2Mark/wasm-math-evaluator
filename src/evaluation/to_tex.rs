@@ -202,11 +202,16 @@ impl Expr {
                     let r = params[1].to_tex(0, 0).0;
                     (format!("P^{{{n}}}_{{{r}}}"), 0, 2)
                 }
+                OtherFn::Atan2 => {
+                    let y = params[0].to_tex(0, 0).0;
+                    let x = params[1].to_tex(0, 0).0;
+                    (format!("\\operatorname{{atan2}}({y}, {x})"), 0, 0)
+                },
             },
             Expr::Number(n, d) => {
                 let ret = match try_to_int(n) {
                     Some(n) => n.to_string(),
-                    None => bigfloat_to_str(n, *d),
+                    None => bigfloat_to_str(n, *d, 0),
                 };
 
                 (ret, 2, 1)

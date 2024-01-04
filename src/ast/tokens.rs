@@ -46,6 +46,7 @@ pub enum MathConst {
 pub enum OtherFn {
     Ncr,
     Npr,
+    Atan2
 }
 
 #[derive(Copy, Clone)]
@@ -135,6 +136,7 @@ impl fmt::Display for OtherFn {
         let s = match self {
             OtherFn::Ncr => "nCr",
             OtherFn::Npr => "nPr",
+            OtherFn::Atan2 => "atan2",
         };
 
         write!(f, "{}", s)

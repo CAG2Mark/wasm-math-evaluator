@@ -5,7 +5,10 @@ pub fn get_exponent(v: &BigFloat) -> i64 {
 }
 
 pub fn get_significant_digits(v: &BigFloat) -> usize {
-    let (mantissa, ..) = v.to_raw_parts().unwrap();
+    let (mantissa, ..) = match v.to_raw_parts() {
+        Some(v) => v,
+        None => return 0
+    };
 
     let m = mantissa_tostr(mantissa, false);
     let mut l: usize = 0;
@@ -40,7 +43,7 @@ pub fn get_decimal_places(v: &BigFloat) -> usize {
 }
 
 // auto determine decimal places
-pub fn bigfloat_auto_str(v: &BigFloat) -> String {
+pub fn bigfloat_auto_str(v: &BigFloat, sigfigs: usize) -> String {
     if v.is_nan() {
         return v.to_string();
     }
@@ -65,10 +68,10 @@ pub fn bigfloat_auto_str(v: &BigFloat) -> String {
             let exp_adjusted = get_exponent(v);
 
             if exp_adjusted >= 20 || exp_adjusted <= -5 {
-                return bigfloat_scientific(v);
+                return bigfloat_scientific(v, sigfigs);
             }
 
-            bigfloat_to_str(v, get_decimal_places(&v))
+            bigfloat_to_str(v, get_decimal_places(&v), sigfigs)
         }
     }
 }
@@ -98,7 +101,37 @@ pub fn mantissa_tostr(mantissa: [i16; 10], fill: bool) -> String {
     }
 }
 
-pub fn bigfloat_scientific(v: &BigFloat) -> String {
+fn digits_trim_sigfigs(digits: String, sigfigs: usize) -> String {
+    if sigfigs == 0 || sigfigs >= digits.len() {
+        return digits;
+    }
+
+    let mut v: Vec<u32> = vec![];
+
+    for ch in digits.chars() {
+        v.push((ch as u32 - '0' as u32) as u32);
+    }
+
+    v[sigfigs] += 5;
+    for i in (0..(sigfigs + 1)).rev() {
+        if v[i] < 10 {
+            break;
+        }
+        v[i] %= 10;
+
+        if i > 0 {
+            v[i] += 1;
+        }
+    }
+
+    v[..sigfigs]
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+pub fn bigfloat_scientific(v: &BigFloat, sigfigs: usize) -> String {
     if v.is_nan() {
         return v.to_string();
     }
@@ -119,7 +152,7 @@ pub fn bigfloat_scientific(v: &BigFloat) -> String {
 
     let exp_adjusted = get_exponent(v);
 
-    let significant_digits = get_significant_digits(v);
+    let significant_digits = get_significant_digits(v).min(sigfigs);
 
     let mut cur = mantissa_tostr(mantissa, false);
     let trunc = significant_digits.min(cur.len());
@@ -138,7 +171,7 @@ pub fn bigfloat_scientific(v: &BigFloat) -> String {
     }
 }
 
-pub fn bigfloat_to_str(v: &BigFloat, decimal_digits: usize) -> String {
+pub fn bigfloat_to_str(v: &BigFloat, decimal_digits: usize, sigfigs: usize) -> String {
     if v.is_nan() {
         return v.to_string();
     }
@@ -158,6 +191,7 @@ pub fn bigfloat_to_str(v: &BigFloat, decimal_digits: usize) -> String {
     let (mantissa, _dp, sign, _exp) = v.to_raw_parts().unwrap();
 
     let mut cur = mantissa_tostr(mantissa, false);
+    cur = digits_trim_sigfigs(cur, sigfigs);
 
     let exp_adjusted = get_exponent(v);
 
