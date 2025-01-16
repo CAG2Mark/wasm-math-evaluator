@@ -419,6 +419,8 @@ pub fn get_param_count(func: &OtherFn) -> usize {
         OtherFn::Ncr => 2,
         OtherFn::Npr => 2,
         OtherFn::Atan2 => 2,
+        OtherFn::Min => 2,
+        OtherFn::Max => 2,
     }
 }
 

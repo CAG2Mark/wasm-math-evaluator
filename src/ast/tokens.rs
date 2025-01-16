@@ -46,7 +46,9 @@ pub enum MathConst {
 pub enum OtherFn {
     Ncr,
     Npr,
-    Atan2
+    Atan2,
+    Min,
+    Max
 }
 
 #[derive(Copy, Clone)]
@@ -137,6 +139,8 @@ impl fmt::Display for OtherFn {
             OtherFn::Ncr => "nCr",
             OtherFn::Npr => "nPr",
             OtherFn::Atan2 => "atan2",
+            OtherFn::Min => "min",
+            OtherFn::Max => "max",
         };
 
         write!(f, "{}", s)

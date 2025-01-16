@@ -127,6 +127,16 @@ impl Expr {
                     let x = params[1].eval(vars)?;
                     Ok(atan2(&y, &x))
                 },
+                OtherFn::Min => {
+                    let a = params[0].eval(vars)?;
+                    let b = params[1].eval(vars)?;
+                    Ok(a.min(&b))
+                },
+                OtherFn::Max => {
+                    let a = params[0].eval(vars)?;
+                    let b = params[1].eval(vars)?;
+                    Ok(a.max(&b))
+                },
             },
             Expr::Const(c) => match c {
                 MathConst::PI => Ok(num_bigfloat::PI),

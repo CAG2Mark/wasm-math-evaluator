@@ -37,6 +37,8 @@ const OTHER_FUNCTIONS: &'static [(&'static str, OtherFn)] = &[
     ("nCr", OtherFn::Ncr), 
     ("nPr", OtherFn::Npr),
     ("atan2", OtherFn::Atan2),
+    ("min", OtherFn::Min),
+    ("max", OtherFn::Max),  
 ];
 
 const OPS: &'static [(&'static str, Operator)] = &[

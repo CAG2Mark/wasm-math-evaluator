@@ -207,6 +207,16 @@ impl Expr {
                     let x = params[1].to_tex(0, 0).0;
                     (format!("\\operatorname{{atan2}}({y}, {x})"), 0, 0)
                 },
+                OtherFn::Min => {
+                    let a = params[0].to_tex(0, 0).0;
+                    let b = params[1].to_tex(0, 0).0;
+                    (format!("\\operatorname{{min}}({a}, {b})"), 0, 0)
+                },
+                OtherFn::Max => {
+                    let a = params[0].to_tex(0, 0).0;
+                    let b = params[1].to_tex(0, 0).0;
+                    (format!("\\operatorname{{max}}({a}, {b})"), 0, 0)
+                },
             },
             Expr::Number(n, d) => {
                 let ret = match try_to_int(n) {
