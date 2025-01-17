@@ -20,6 +20,19 @@ fn extract_nested(e: &ExprPos) -> &ExprPos {
     }
 }
 
+fn fmt_param_list(params: &Vec<ExprPos>) -> String {
+    if params.len() == 0 {
+        return "".to_string()
+    }
+    
+    let mut ret = params[0].to_tex(0, 0).0.to_string();
+    for p in &params[1..] {
+        ret += ", ";
+        ret += &p.to_tex(0, 0).0
+    }
+    ret.to_string()
+}
+
 impl Expr {
     // (tex output, left multiplication dot priority, right multiplication dot priority.)
     // multiplication dot priority:
@@ -208,14 +221,12 @@ impl Expr {
                     (format!("\\operatorname{{atan2}}({y}, {x})"), 0, 0)
                 },
                 OtherFn::Min => {
-                    let a = params[0].to_tex(0, 0).0;
-                    let b = params[1].to_tex(0, 0).0;
-                    (format!("\\operatorname{{min}}({a}, {b})"), 0, 0)
+                    let p = fmt_param_list(params);
+                    (format!("\\operatorname{{min}}({p})"), 0, 0)
                 },
                 OtherFn::Max => {
-                    let a = params[0].to_tex(0, 0).0;
-                    let b = params[1].to_tex(0, 0).0;
-                    (format!("\\operatorname{{max}}({a}, {b})"), 0, 0)
+                    let p = fmt_param_list(params);
+                    (format!("\\operatorname{{max}}({p})"), 0, 0)
                 },
             },
             Expr::Number(n, d) => {

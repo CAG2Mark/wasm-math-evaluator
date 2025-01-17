@@ -128,14 +128,20 @@ impl Expr {
                     Ok(atan2(&y, &x))
                 },
                 OtherFn::Min => {
-                    let a = params[0].eval(vars)?;
-                    let b = params[1].eval(vars)?;
-                    Ok(a.min(&b))
+                    let mut val = num_bigfloat::INF_POS;
+                    for p in params {
+                        let evaled = p.eval(vars)?;
+                        val = val.min(&evaled);
+                    }
+                    Ok(val)
                 },
                 OtherFn::Max => {
-                    let a = params[0].eval(vars)?;
-                    let b = params[1].eval(vars)?;
-                    Ok(a.max(&b))
+                    let mut val = num_bigfloat::INF_NEG;
+                    for p in params {
+                        let evaled = p.eval(vars)?;
+                        val = val.max(&evaled);
+                    }
+                    Ok(val)
                 },
             },
             Expr::Const(c) => match c {

@@ -419,26 +419,29 @@ pub fn get_param_count(func: &OtherFn) -> usize {
         OtherFn::Ncr => 2,
         OtherFn::Npr => 2,
         OtherFn::Atan2 => 2,
-        OtherFn::Min => 2,
-        OtherFn::Max => 2,
+        OtherFn::Min => 0,
+        OtherFn::Max => 0,
     }
 }
 
-fn parse_separated_params(tokens: &mut Tokens, num_params: usize) -> Result<Vec<ExprPos>, ParseError> {
+fn parse_separated_params(tokens: &mut Tokens) -> Result<Vec<ExprPos>, ParseError> {
     let mut ret = vec![];
 
-    ret.push(parse_expr(tokens)?);
-
-    for _i in 1..num_params {
-        match tokens.pop_front() {
-            Some(TokenPos { tk: Token::Comma, ..}) => { },
-            Some(TokenPos { tk: _, pos }) => return Err(ParseError::UnexpectedToken(pos)),
-            None => return Err(ParseError::UnexpectedEnd)
-        }
-
-        ret.push(parse_expr(tokens)?);
+    match tokens.front() {
+        Some(TokenPos {tk: Token::CloseBrace, ..}) => return Ok(ret),
+        None => return Ok(ret),
+        _ => ret.push(parse_expr(tokens)?)
     }
 
+    let mut _i = 0;
+    loop {
+        match tokens.front() {
+            Some(TokenPos { tk: Token::Comma, ..}) => { tokens.pop_front(); },
+            _ => break
+        }
+        ret.push(parse_expr(tokens)?);
+        _i += 1
+    }
     return Ok(ret);
 }
 
@@ -480,22 +483,31 @@ pub fn parse_atomic(tokens: &mut Tokens) -> Result<ExprPos, ParseError> {
                 Token::OtherFunction(f) => {
                     let num_params = get_param_count(&f);
                     
-                    match tokens.pop_front() {
-                        Some(TokenPos { tk: Token::OpenBrace, pos: _ }) => { },
+                    let open_pos= match tokens.pop_front() {
+                        Some(TokenPos { tk: Token::OpenBrace, pos: p }) => { p },
                         Some(TokenPos { tk: _, pos }) => return Err(ParseError::UnexpectedToken(pos)),
                         None => return Err(ParseError::UnexpectedEnd)
                     };
 
-                    let ret = parse_separated_params(tokens, num_params)?;
+                    let ret = parse_separated_params(tokens)?;
 
                     let end_pos = match tokens.pop_front() {
                         Some(TokenPos {tk: Token::CloseBrace, pos}) => pos,
-                        _ => ret.last().unwrap().pos, // Allow unclosed braces. Also assume functions have at least one param
+                        _ => match ret.last() { // Allow unclosed braces
+                            Some(tk) => tk.pos,
+                            None => open_pos
+                        }
                     };
+
+                    let expr_pos= (pos.0, end_pos.1);
+
+                    if ret.len() == 0 || (num_params != 0 && ret.len() != num_params) {
+                        return Err(ParseError::WrongNumArgs(expr_pos))
+                    }
 
                     ExprPos {
                         expr: Expr::OtherFunction(f, ret),
-                        pos: (pos.0, end_pos.1),
+                        pos: expr_pos,
                     }
                 }
 
