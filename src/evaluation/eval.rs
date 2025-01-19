@@ -1,4 +1,4 @@
-use num_bigfloat::BigFloat;
+use num_bigfloat::{BigFloat, ZERO};
 use std::collections::{HashMap, HashSet};
 
 use crate::{
@@ -43,7 +43,14 @@ impl Expr {
                     Operator::Minus => lhs_e - rhs_e,
                     Operator::Times => lhs_e * rhs_e,
                     Operator::Div => lhs_e / rhs_e,
-                    Operator::Mod => lhs_e % rhs_e,
+                    Operator::Mod => {
+                        let ans = lhs_e % rhs_e;
+                        if ans < ZERO {
+                            ans + rhs_e
+                        } else {
+                            ans
+                        }
+                    }
                     Operator::Factorial => unreachable!(),
                     Operator::Pow => if lhs_e.is_zero() && rhs_e.is_zero() {
                         num_bigfloat::ONE

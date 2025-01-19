@@ -1,7 +1,32 @@
 use num_bigfloat::{BigFloat, RoundingMode::ToEven};
 
 pub fn get_exponent(v: &BigFloat) -> i64 {
-    v.abs().log10().floor().to_i64().unwrap()
+    if v.is_zero() {
+        return 0
+    }
+
+    match v.to_raw_parts() {
+        Some((mut mantissa, _dp, _sign, exp)) => {
+            mantissa.reverse();
+            let mut diff = 0;
+            for n in mantissa {
+                if n == 0 {
+                    diff += 4
+                } else if n < 10 {
+                    diff += 3
+                } else if n < 100 {
+                    diff += 2
+                } else if n < 1000 {
+                    diff += 1
+                } else {
+                    break
+                }
+            }
+            return (exp - diff + 39).into()
+        }
+        None => 0
+    }
+    
 }
 
 pub fn get_significant_digits(v: &BigFloat) -> usize {
@@ -24,8 +49,9 @@ pub fn get_significant_digits(v: &BigFloat) -> usize {
 }
 
 pub fn try_to_int(v: &BigFloat) -> Option<i128> {
-    if (*v - &v.round(0, ToEven)).abs() < num_bigfloat::EPSILON {
-        v.int().to_i128()
+    let rounded = v.round(0, ToEven);
+    if (*v - &rounded).abs() < num_bigfloat::EPSILON {
+        rounded.int().to_i128()
     } else {
         None
     }
